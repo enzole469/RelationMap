@@ -67,7 +67,7 @@ const formeAnneau = d3.arc()
   .startAngle(0)
   .endAngle(2 * Math.PI);
 
-monde.append("g")
+const anneaux = monde.append("g")
   .selectAll("path")
   .data(CERCLES)
   .join("path")
@@ -75,6 +75,11 @@ monde.append("g")
   .attr("d", formeAnneau)
   .attr("fill", (c) => c.couleur)
   .attr("stroke", (c) => c.couleur);
+
+// Fait ressortir l'anneau d'un niveau (null = aucun).
+function mettreEnAvantAnneau(niveau) {
+  anneaux.classed("choisi", (c) => c.niveau === niveau);
+}
 
 // --- Moi, au centre -------------------------------------------------------
 

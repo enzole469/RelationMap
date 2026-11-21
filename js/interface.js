@@ -26,12 +26,22 @@ document.getElementById("choix-niveau").innerHTML = CERCLES.map((c) => `
     <span>${c.nom}</span>
   </label>`).join("");
 
+// Choisir un niveau fait ressortir l'anneau correspondant sur la carte.
+function choisirNiveau(niveau) {
+  formulaireRelation.elements.niveau.value = String(niveau);
+  mettreEnAvantAnneau(niveau);
+}
+
+document.getElementById("choix-niveau").addEventListener("change", () => {
+  mettreEnAvantAnneau(Number(formulaireRelation.elements.niveau.value));
+});
+
 function ouvrirPourAjouter() {
   relationOuverte = null;
   titreRelation.textContent = "Nouvelle relation";
   validerRelation.textContent = "Ajouter";
   champNom.value = "";
-  formulaireRelation.elements.niveau.value = "3";
+  choisirNiveau(3);
   zoneSuppression.hidden = true;
   selectionner();
   afficherVue(vueRelation);
@@ -43,7 +53,7 @@ function ouvrirPourModifier(relation) {
   titreRelation.textContent = relation.nom;
   validerRelation.textContent = "Enregistrer";
   champNom.value = relation.nom;
-  formulaireRelation.elements.niveau.value = String(relation.cercle);
+  choisirNiveau(relation.cercle);
   zoneSuppression.hidden = false;
   boutonSupprimer.hidden = false;
   confirmation.hidden = true;

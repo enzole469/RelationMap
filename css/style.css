@@ -86,10 +86,17 @@ h1 {
   stroke-opacity: 0.2;
   stroke-width: 1.5;
   opacity: 0;
-  transition: opacity 0.4s;
+  transition: opacity 0.4s, fill-opacity 0.3s, stroke-opacity 0.3s;
 }
 
 #carte.anneaux-visibles .anneau { opacity: 1; }
+
+/* L'anneau du niveau choisi dans le panneau ressort davantage */
+.anneau.choisi {
+  fill-opacity: 0.18;
+  stroke-opacity: 0.6;
+  stroke-width: 2.5;
+}
 
 
 .moi circle { fill: var(--texte); }
