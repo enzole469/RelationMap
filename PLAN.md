@@ -194,3 +194,11 @@ supplémentaires sur les personnes) ou une des questions en suspens.
   Groupes (bloquer le déplacement de la carte dans tout l'onglet était
   gênant). Lasso désactivé : glisser déplace la carte ; activé : glisser
   trace le lasso. Il se désactive en sortant de l'onglet.
+- 2026-11-22 : sous-groupes. Un groupe dont tous les membres sont dans un
+  groupe plus grand en est un sous-groupe : il disparaît quand le grand
+  groupe est replié (pas de bulle ni de chevauchement), apparaît replié
+  dans le halo du grand groupe quand celui-ci est ouvert, puis s'ouvre à
+  son tour (halo imbriqué). La recherche ouvre tous les niveaux. Correction
+  du moteur : un paquet détecté ne reprend l'identité d'un groupe connu que
+  s'il a au moins un vrai membre en commun avec lui (une personne seule
+  était rattachée à tort à un groupe créé à la main).

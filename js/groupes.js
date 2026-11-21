@@ -176,7 +176,9 @@ function calculerGroupes() {
   for (const ids of parTaille) {
     let meilleur = null, meilleureRessemblance = 0.34;
     for (const g of disponibles) {
-      // les personnes ajoutées à la main comptent pour le reconnaître
+      // il faut au moins une personne en commun avec le groupe connu...
+      if (!ids.some((id) => g.membres.includes(id))) continue;
+      // ... et les personnes ajoutées à la main comptent pour le reconnaître
       const ajoutees = relations.filter((r) => choixPour(r, g.id) === true).map((r) => r.id);
       const r = ressemblance([...new Set(ids.concat(ajoutees))], g.membres);
       if (r > meilleureRessemblance) { meilleur = g; meilleureRessemblance = r; }

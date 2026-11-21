@@ -269,14 +269,51 @@ let unitesVisibles = [];              // paquets pour la répartition
 let recouvrements = new Map();        // "idA|idB" -> part de membres partagés
 let liensInvisibles = [];             // attractions non dessinées (chevauchements, appartenances)
 
+// --- Sous-groupes ------------------------------------------------------------
+//
+// Un groupe dont tous les membres sont dans un groupe plus grand en est un
+// sous-groupe. Quand le grand groupe est replié, le sous-groupe disparaît
+// (il est "masqué") ; quand il est ouvert, le sous-groupe apparaît dedans.
+let parentsDe = new Map(); // id de groupe -> groupes qui le contiennent strictement
+
+function calculerInclusions() {
+  parentsDe = new Map(groupesActuels.map((g) => [g.id, []]));
+  for (const petit of groupesActuels) {
+    const ids = petit.membres.map((r) => r.id);
+    for (const grand of groupesActuels) {
+      if (grand === petit || grand.membres.length <= petit.membres.length) continue;
+      const dansGrand = new Set(grand.membres.map((r) => r.id));
+      if (ids.every((id) => dansGrand.has(id))) parentsDe.get(petit.id).push(grand);
+    }
+  }
+}
+
+const estSousGroupeDe = (petit, grand) => (parentsDe.get(petit.id) || []).includes(grand);
+
+// Un sous-groupe est masqué si un des groupes qui le contiennent est replié.
+const groupeMasque = (g) => (parentsDe.get(g.id) || []).some((p) => !groupesOuverts.has(p.id));
+
 // Le groupe replié qui cache une personne (ou null si elle est visible).
-// Une personne est cachée quand tous ses groupes sont repliés ; elle est
-// alors représentée par la bulle de son groupe principal (pour regrouper ses
-// liens). Dès qu'un de ses groupes est ouvert, elle est visible.
+// On ne regarde que ses groupes non masqués, et parmi eux les plus précis
+// (ceux qui ne contiennent pas un autre de ses groupes). Si tous ceux-là
+// sont repliés, elle est cachée, représentée par son groupe principal s'il
+// en fait partie (pour regrouper ses liens) ; sinon elle est visible.
 function groupeReplie(idRelation) {
-  const groupes = groupesDe(idRelation);
-  if (!groupes.length || groupes.some((g) => groupesOuverts.has(g.id))) return null;
-  return groupes.find((g) => g.id === principalDe.get(idRelation)) || groupes[0];
+  const groupes = groupesDe(idRelation).filter((g) => !groupeMasque(g));
+  if (!groupes.length) return null;
+  const precis = groupes.filter((g) => !groupes.some((h) => h !== g && estSousGroupeDe(h, g)));
+  if (precis.some((g) => groupesOuverts.has(g.id))) return null;
+  return precis.find((g) => g.id === principalDe.get(idRelation)) || precis[0];
+}
+
+// Ouvre tous les groupes nécessaires pour qu'une personne soit visible
+// (le grand groupe, puis le sous-groupe...).
+function rendreVisible(idRelation) {
+  for (let i = 0; i < 10; i++) {
+    const g = groupeReplie(idRelation);
+    if (!g) return;
+    ouvrirGroupe(g.id);
+  }
 }
 
 // Ce qui représente une personne à l'écran : elle-même, ou la bulle de
@@ -290,6 +327,7 @@ const centreDe = (liste) => ({ x: d3.mean(liste, (n) => n.x), y: d3.mean(liste, 
 
 // Construit la liste de ce qui est affiché, à partir des groupes calculés.
 function construireNoeuds() {
+  calculerInclusions();
   // Les groupes disparus ne sont plus ouverts ni repliés.
   const existants = new Set(groupesActuels.map((g) => g.id));
   for (const id of [...groupesOuverts]) if (!existants.has(id)) groupesOuverts.delete(id);
@@ -303,14 +341,15 @@ function construireNoeuds() {
       }
     }
   }
+  const masques = new Set(groupesActuels.filter(groupeMasque).map((g) => g.id));
   for (const id of [...noeudsGroupes.keys()]) {
-    if (!existants.has(id) || groupesOuverts.has(id)) noeudsGroupes.delete(id);
+    if (!existants.has(id) || groupesOuverts.has(id) || masques.has(id)) noeudsGroupes.delete(id);
   }
 
-  // Une bulle par groupe replié, placée au centre de ses membres, à leur
-  // distance moyenne de "moi".
+  // Une bulle par groupe replié (et non masqué), placée au centre de ses
+  // membres, à leur distance moyenne de "moi".
   for (const g of groupesActuels) {
-    if (groupesOuverts.has(g.id)) continue;
+    if (groupesOuverts.has(g.id) || masques.has(g.id)) continue;
     let n = noeudsGroupes.get(g.id);
     if (!n) {
       n = { id: g.id, type: "groupe", ...centreDe(g.membres) };
@@ -361,7 +400,7 @@ function construireNoeuds() {
       const a = replies[i], b = replies[j];
       const ids = new Set(a.groupe.membres.map((r) => r.id));
       const partages = b.groupe.membres.filter((r) => ids.has(r.id)).length;
-      if (!partages) continue;
+      if (!partages || estSousGroupeDe(a.groupe, b.groupe) || estSousGroupeDe(b.groupe, a.groupe)) continue;
       // dès une personne en commun, les bulles se recouvrent nettement ;
       // d'autant plus qu'elles partagent de membres
       const part = 0.35 + 0.5 * Math.min(1, partages / Math.min(a.groupe.membres.length, b.groupe.membres.length));
@@ -534,8 +573,10 @@ function mettreAJourPositions() {
     .attr("y2", (l) => noeudsParId.get(l.vers).y);
   // Halo autour des membres de chaque groupe ouvert
   halos.each(function (g) {
-    const c = centreDe(g.membres);
-    const rayon = d3.max(g.membres, (r) => Math.hypot(r.x - c.x, r.y - c.y) + rayonBulle(r)) + 18;
+    // ce qui représente ses membres : personnes visibles ou bulles de sous-groupes
+    const visibles = [...new Set(g.membres.map((r) => noeudVisibleDe(r.id)).filter(Boolean))];
+    const c = centreDe(visibles);
+    const rayon = d3.max(visibles, (r) => Math.hypot(r.x - c.x, r.y - c.y) + rayonBulle(r)) + 18;
     d3.select(this).select("circle").attr("cx", c.x).attr("cy", c.y).attr("r", rayon);
     d3.select(this).select("text").attr("x", c.x).attr("y", c.y - rayon - 6);
   });
@@ -1058,7 +1099,7 @@ function dessinerCarte() {
   // dessus ouvre le panneau du groupe.
   halos = calqueHalos
     .selectAll("g.halo")
-    .data(groupesActuels.filter((g) => groupesOuverts.has(g.id)), (g) => g.id)
+    .data(groupesActuels.filter((g) => groupesOuverts.has(g.id) && !groupeMasque(g)), (g) => g.id)
     .join((entree) => {
       const nouveau = entree.append("g")
         .attr("class", "halo")

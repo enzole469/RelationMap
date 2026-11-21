@@ -406,7 +406,7 @@ function ouvrirPanneauGroupe(id) {
     pastille.style.background = couleurDuCercle(r.cercle);
     b.append(pastille, document.createTextNode(r.nom));
     b.addEventListener("click", () => {
-      ouvrirGroupe(id);
+      rendreVisible(r.id);
       const personne = trouverRelation(r.id);
       ouvrirPourModifier(personne);
       cadrerPersonne(personne, panneau.getBoundingClientRect());
@@ -726,8 +726,7 @@ champRecherche.addEventListener("keydown", (evenement) => {
     if (!trouvee) return;
     viderRecherche();
     champRecherche.blur();
-    const groupe = groupeReplie(trouvee.id);
-    if (groupe) ouvrirGroupe(groupe.id);
+    rendreVisible(trouvee.id); // ouvre le groupe, puis le sous-groupe...
     centrerSur(trouvee);
     ouvrirPourModifier(trouvee);
   } else if (evenement.key === "Escape") {
