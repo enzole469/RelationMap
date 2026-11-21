@@ -10,14 +10,41 @@
   <header>
     <h1>RelationMap</h1>
     <ul id="legende"></ul>
+    <button id="bouton-ajouter" class="principal">+ Ajouter</button>
   </header>
 
   <!-- La carte est dessinée ici par js/carte.js -->
   <svg id="carte"></svg>
 
-  <!-- L'ordre compte : la bibliothèque, puis les données, puis la carte -->
+  <!-- Panneau pour ajouter ou modifier une relation (géré par js/interface.js) -->
+  <aside id="panneau" hidden>
+    <button id="bouton-fermer" class="fermer" aria-label="Fermer">×</button>
+    <h2 id="panneau-titre">Nouvelle relation</h2>
+
+    <form id="formulaire">
+      <label for="champ-nom">Nom</label>
+      <input id="champ-nom" type="text" maxlength="40" autocomplete="off" required>
+
+      <p class="etiquette">Proximité</p>
+      <div id="choix-niveau"></div>
+
+      <button type="submit" id="bouton-valider" class="principal">Ajouter</button>
+    </form>
+
+    <div id="zone-suppression" hidden>
+      <button id="bouton-supprimer" class="danger-discret">Supprimer cette relation</button>
+      <div id="confirmation" hidden>
+        <p>Supprimer <strong id="nom-a-supprimer"></strong> de la carte ?</p>
+        <button id="confirmer-suppression" class="danger">Oui, supprimer</button>
+        <button id="annuler-suppression">Annuler</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- L'ordre compte : la bibliothèque, les données, la carte, puis le panneau -->
   <script src="lib/d3.min.js"></script>
   <script src="js/donnees.js"></script>
   <script src="js/carte.js"></script>
+  <script src="js/interface.js"></script>
 </body>
 </html>

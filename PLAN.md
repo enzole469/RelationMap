@@ -5,11 +5,13 @@ session et mis à jour à la fin.
 
 ## Où on en est
 
-**Dernière session :** 2026-11-21. Git installé, étape 1 terminée : la carte
-s'affiche avec 4 cercles et des relations fictives, on peut zoomer, déplacer
-la carte et faire glisser les bulles.
+**Dernière session :** 2026-11-21. Étapes 1 et 2 terminées : carte en
+disques de proximité, ajout / modification / suppression de relations via un
+panneau. Rien n'est encore sauvegardé (tout repart des exemples au
+rechargement).
 
-**Prochaine action :** étape 2, ajouter et supprimer des relations.
+**Prochaine action :** étape 3, créer des liens entre relations en glissant
+une bulle sur une autre.
 
 ## Étapes
 
@@ -25,9 +27,9 @@ la carte et faire glisser les bulles.
 - [x] Déplacement et zoom sur la carte
 
 ### Étape 2 : gérer les relations
-- [ ] Ajouter une relation (nom + cercle de proximité)
-- [ ] Changer le cercle d'une relation
-- [ ] Supprimer une relation (avec confirmation)
+- [x] Ajouter une relation (nom + cercle de proximité)
+- [x] Changer le nom ou le cercle d'une relation (clic sur la bulle)
+- [x] Supprimer une relation (avec confirmation)
 
 ### Étape 3 : gérer les liens
 - [ ] Créer un lien en glissant une bulle sur une autre
@@ -62,3 +64,5 @@ la carte et faire glisser les bulles.
 - 2026-11-21 : chaque niveau est un disque (anneau coloré) et non une ligne :
   les bulles sont libres à l'intérieur de leur disque et y reviennent si on
   les lâche en dehors.
+- 2026-11-21 : pas de nom écrit sur les disques, la couleur et la légende
+  suffisent.

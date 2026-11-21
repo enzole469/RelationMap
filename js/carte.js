@@ -31,7 +31,7 @@ d3.select("#legende")
 // --- Mise en place de la zone de dessin -----------------------------------
 
 // Le point (0, 0) est au centre de la carte : c'est "moi".
-const tailleVue = (rayonDuCercle(CERCLES.length) + 60) * 2;
+const tailleVue = (rayonDuCercle(CERCLES.length) + 40) * 2;
 const svg = d3.select("#carte")
   .attr("viewBox", [-tailleVue / 2, -tailleVue / 2, tailleVue, tailleVue]);
 
@@ -68,47 +68,6 @@ const moi = monde.append("g").attr("class", "moi");
 moi.append("circle").attr("r", RAYON_MOI);
 moi.append("text").text("Moi");
 
-// --- Les bulles de relations ----------------------------------------------
-
-// Copie des données, car D3 va y ajouter les positions (x, y).
-const relations = RELATIONS_EXEMPLE.map((r) => ({ ...r }));
-
-// Position de départ : chaque relation est répartie dans son disque.
-for (const cercle of CERCLES) {
-  const membres = relations.filter((r) => r.cercle === cercle.niveau);
-  const { min, max } = limitesDuDisque(cercle.niveau);
-  membres.forEach((r, i) => {
-    const angle = (i / membres.length) * 2 * Math.PI + cercle.niveau;
-    const distance = min + Math.random() * (max - min);
-    r.x = Math.cos(angle) * distance;
-    r.y = Math.sin(angle) * distance;
-  });
-}
-
-const bulles = monde.append("g")
-  .selectAll("g")
-  .data(relations, (r) => r.id)
-  .join("g")
-  .attr("class", "bulle");
-
-bulles.append("circle")
-  .attr("r", RAYON_BULLE)
-  .attr("fill", (r) => couleurDuCercle(r.cercle));
-
-bulles.append("text")
-  .attr("y", RAYON_BULLE + 16)
-  .text((r) => r.nom);
-
-// --- Les noms des disques, au-dessus des bulles pour rester lisibles -------
-
-monde.append("g")
-  .selectAll("text")
-  .data(CERCLES)
-  .join("text")
-  .attr("class", "nom-anneau")
-  .attr("y", (c) => -rayonDuCercle(c.niveau) + 18)
-  .text((c) => c.nom);
-
 // --- La "physique" qui place les bulles -----------------------------------
 
 // Règle maison : une bulle sortie de son disque y est ramenée doucement.
@@ -130,7 +89,7 @@ function forceDisque() {
 
 // Deux règles : chaque bulle reste dans son disque,
 // et les bulles se repoussent pour ne pas se chevaucher.
-const simulation = d3.forceSimulation(relations)
+const simulation = d3.forceSimulation()
   .force("disque", forceDisque)
   .force("ecart", d3.forceCollide(RAYON_BULLE + 14))
   .on("tick", () => {
@@ -141,20 +100,75 @@ const simulation = d3.forceSimulation(relations)
 
 // Quand on lâche la bulle, elle reste où on l'a posée,
 // sauf si elle est hors de son disque : elle y revient alors.
-bulles.call(
-  d3.drag()
-    .on("start", (evenement, r) => {
-      if (!evenement.active) simulation.alphaTarget(0.3).restart();
-      r.fx = r.x;
-      r.fy = r.y;
-    })
-    .on("drag", (evenement, r) => {
-      r.fx = evenement.x;
-      r.fy = evenement.y;
-    })
-    .on("end", (evenement, r) => {
-      if (!evenement.active) simulation.alphaTarget(0);
-      r.fx = null;
-      r.fy = null;
-    })
-);
+const glisser = d3.drag()
+  .on("start", (evenement, r) => {
+    if (!evenement.active) simulation.alphaTarget(0.3).restart();
+    r.fx = r.x;
+    r.fy = r.y;
+  })
+  .on("drag", (evenement, r) => {
+    r.fx = evenement.x;
+    r.fy = evenement.y;
+  })
+  .on("end", (evenement, r) => {
+    if (!evenement.active) simulation.alphaTarget(0);
+    r.fx = null;
+    r.fy = null;
+  });
+
+// --- Les bulles de relations ----------------------------------------------
+
+const calqueBulles = monde.append("g");
+let bulles = calqueBulles.selectAll("g.bulle");
+let idSelectionne = null;
+
+// Fonction appelée quand on clique sur une bulle (définie dans interface.js).
+let quandOnCliqueUneBulle = () => {};
+
+// Une nouvelle bulle apparaît à un endroit au hasard dans son disque.
+function placerDansSonDisque(r) {
+  const { min, max } = limitesDuDisque(r.cercle);
+  const angle = Math.random() * 2 * Math.PI;
+  const distance = min + Math.random() * (max - min);
+  r.x = Math.cos(angle) * distance;
+  r.y = Math.sin(angle) * distance;
+}
+
+// Met la carte en accord avec la liste des relations :
+// ajoute les nouvelles bulles, retire les supprimées, met à jour les autres.
+function dessinerCarte() {
+  for (const r of relations) {
+    if (r.x === undefined) placerDansSonDisque(r);
+  }
+
+  bulles = calqueBulles
+    .selectAll("g.bulle")
+    .data(relations, (r) => r.id)
+    .join((entree) => {
+      const nouvelle = entree.append("g")
+        .attr("class", "bulle")
+        .call(glisser)
+        .on("click", (evenement, r) => {
+          evenement.stopPropagation();
+          quandOnCliqueUneBulle(r);
+        });
+      nouvelle.append("circle").attr("r", RAYON_BULLE);
+      nouvelle.append("text").attr("y", RAYON_BULLE + 16);
+      return nouvelle;
+    });
+
+  bulles.select("circle").attr("fill", (r) => couleurDuCercle(r.cercle));
+  bulles.select("text").text((r) => r.nom);
+  bulles.classed("selectionnee", (r) => r.id === idSelectionne);
+
+  simulation.nodes(relations);
+  simulation.alpha(0.5).restart();
+}
+
+// Met en évidence une bulle (ou aucune si id vaut null).
+function selectionnerBulle(id) {
+  idSelectionne = id;
+  bulles.classed("selectionnee", (r) => r.id === idSelectionne);
+}
+
+dessinerCarte();

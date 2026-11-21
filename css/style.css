@@ -75,15 +75,6 @@ h1 {
   stroke-width: 1.5;
 }
 
-.nom-anneau {
-  font-size: 13px;
-  fill: var(--texte-doux);
-  text-anchor: middle;
-  paint-order: stroke;
-  stroke: var(--fond);
-  stroke-width: 4px;
-  pointer-events: none; /* ne gêne pas le glisser des bulles */
-}
 
 .moi circle { fill: var(--texte); }
 .moi text {
@@ -109,3 +100,139 @@ h1 {
   stroke-width: 4px;
   pointer-events: none;
 }
+
+/* La bulle dont la fiche est ouverte */
+.bulle.selectionnee circle {
+  stroke: var(--texte);
+  stroke-width: 4;
+}
+.bulle.selectionnee text { font-weight: 700; }
+
+/* --- Boutons ------------------------------------------------------------- */
+
+button {
+  font: inherit;
+  padding: 8px 14px;
+  border: 1px solid #d6cfc3;
+  border-radius: 8px;
+  background: white;
+  color: var(--texte);
+  cursor: pointer;
+}
+
+button.principal {
+  background: var(--texte);
+  border-color: var(--texte);
+  color: white;
+  font-weight: 600;
+}
+
+button.danger {
+  background: #c0392b;
+  border-color: #c0392b;
+  color: white;
+}
+
+button.danger-discret {
+  border: none;
+  background: none;
+  padding: 0;
+  color: #c0392b;
+  text-decoration: underline;
+}
+
+#bouton-ajouter { margin-left: auto; }
+
+/* --- Panneau d'ajout / de modification ----------------------------------- */
+
+#panneau {
+  position: fixed;
+  top: 72px;
+  right: 16px;
+  width: min(320px, calc(100% - 32px));
+  padding: 20px;
+  background: white;
+  border-radius: 14px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+}
+
+#panneau h2 {
+  margin: 0 32px 16px 0;
+  font-size: 1.1rem;
+  overflow-wrap: anywhere;
+}
+
+button.fermer {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  border: none;
+  background: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  padding: 4px 8px;
+  color: var(--texte-doux);
+}
+
+#formulaire label[for],
+.etiquette {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 0.85rem;
+  color: var(--texte-doux);
+}
+
+#champ-nom {
+  width: 100%;
+  padding: 8px 10px;
+  margin-bottom: 16px;
+  font: inherit;
+  border: 1px solid #d6cfc3;
+  border-radius: 8px;
+}
+
+/* Choix du niveau : 4 pastilles colorées */
+#choix-niveau {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+
+.choix input {
+  position: absolute;
+  opacity: 0;
+}
+
+.choix span {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 2px solid var(--couleur);
+  color: var(--texte);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.choix input:checked + span {
+  background: var(--couleur);
+  color: white;
+  font-weight: 600;
+}
+
+.choix input:focus-visible + span {
+  outline: 2px solid var(--texte);
+  outline-offset: 2px;
+}
+
+#formulaire button[type="submit"] { width: 100%; }
+
+#zone-suppression {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #eee7dc;
+  text-align: center;
+}
+
+#confirmation p { margin: 0 0 12px; }
+#confirmation button { margin: 0 4px; }

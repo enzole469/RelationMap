@@ -63,8 +63,11 @@ concentriques selon leur degré de proximité avec moi (au centre).
 
 - `index.html` : la page de l'app.
 - `css/style.css` : l'apparence.
-- `js/donnees.js` : les cercles de proximité et les relations d'exemple.
-- `js/carte.js` : le dessin de la carte interactive.
+- `js/donnees.js` : les cercles de proximité, la liste des relations et les
+  actions qui la modifient (ajouter, modifier, supprimer).
+- `js/carte.js` : le dessin de la carte interactive (`dessinerCarte()` la
+  remet à jour après chaque changement).
+- `js/interface.js` : le panneau d'ajout / modification / suppression.
 - `lib/d3.min.js` : la bibliothèque D3 (version 7.9.0), ne pas modifier.
 
 Pour voir l'app : double-cliquer sur `index.html`.
