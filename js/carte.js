@@ -130,18 +130,107 @@ function mettreAJourPositions() {
     .attr("y2", (l) => relationsParId.get(l.vers).y);
 }
 
+// --- Les groupes ------------------------------------------------------------
+
+// Un groupe = des personnes reliées entre elles, directement ou par
+// l'intermédiaire d'autres. Une personne sans lien forme un groupe à elle
+// seule. Les liens "se détestent" ne créent pas de groupe.
+let groupes = [];
+
+function calculerGroupes() {
+  // Chaque personne pointe vers un "représentant" de son groupe.
+  const representant = new Map(relations.map((r) => [r.id, r.id]));
+  const trouverRepresentant = (id) =>
+    representant.get(id) === id ? id : trouverRepresentant(representant.get(id));
+
+  // Chaque lien fusionne les groupes de ses deux personnes.
+  for (const l of liens) {
+    if (typeDeLien(l.type).attraction > 0) {
+      representant.set(trouverRepresentant(l.de), trouverRepresentant(l.vers));
+    }
+  }
+
+  const parRepresentant = new Map();
+  for (const r of relations) {
+    const chef = trouverRepresentant(r.id);
+    if (!parRepresentant.has(chef)) parRepresentant.set(chef, []);
+    parRepresentant.get(chef).push(r);
+  }
+  groupes = [...parRepresentant.values()];
+}
+
+// Force d'écartement entre groupes, "autour du cercle" : comme des convives
+// autour d'une table ronde, chaque groupe s'éloigne de ses voisins jusqu'à
+// ce que tous soient répartis uniformément sur le tour.
+// La poussée est forte entre groupes proches et faible entre groupes
+// éloignés : le mouvement ralentit à mesure que la répartition s'équilibre.
+const ECARTEMENT_GROUPES = 0.3;  // intensité de la poussée
+const VITESSE_MAX_GROUPES = 0.4; // limite de vitesse, pour un mouvement lent
+
+// Écart d'angle entre a et b, ramené entre -π et π.
+function ecartAngle(a, b) {
+  let ecart = a - b;
+  while (ecart > Math.PI) ecart -= 2 * Math.PI;
+  while (ecart < -Math.PI) ecart += 2 * Math.PI;
+  return ecart;
+}
+
+function forceGroupes(alpha) {
+  if (groupes.length < 2) return;
+
+  // Centre de chaque groupe (moyenne des positions de ses membres)
+  // et sa direction vue depuis "moi" (son angle).
+  const centres = groupes.map((membres) => {
+    const x = d3.mean(membres, (r) => r.x);
+    const y = d3.mean(membres, (r) => r.y);
+    return { x, y, angle: Math.atan2(y, x), distance: Math.hypot(x, y) || 1 };
+  });
+
+  centres.forEach((centre, i) => {
+    // Somme des poussées des autres groupes : chacun pousse d'autant plus
+    // fort qu'il est proche en angle (0.15 évite une poussée infinie).
+    let somme = 0;
+    centres.forEach((autre, j) => {
+      if (i === j) return;
+      const ecart = ecartAngle(centre.angle, autre.angle);
+      somme += Math.sign(ecart) / Math.max(Math.abs(ecart), 0.15);
+    });
+
+    // La racine carrée fait durer cette poussée plus longtemps que les
+    // autres règles pendant que l'animation ralentit : les groupes ont le
+    // temps de finir de se répartir.
+    let poussee = ECARTEMENT_GROUPES * Math.sqrt(alpha) * somme;
+    poussee = Math.max(-VITESSE_MAX_GROUPES, Math.min(VITESSE_MAX_GROUPES, poussee));
+
+    // On pousse tout le groupe le long du cercle (perpendiculairement
+    // à la direction de "moi"), sans le rapprocher ni l'éloigner du centre.
+    const tx = -centre.y / centre.distance;
+    const ty = centre.x / centre.distance;
+    for (const r of groupes[i]) {
+      r.vx += tx * poussee;
+      r.vy += ty * poussee;
+    }
+  });
+}
+
+// --- Les liens ----------------------------------------------------------------
+
 // Les bulles reliées s'attirent, plus ou moins selon le type de lien.
 const forceLiens = d3.forceLink()
   .id((r) => r.id)
   .distance((l) => typeDeLien(l.type).distance)
   .strength((l) => typeDeLien(l.type).attraction);
 
-// Trois règles : chaque bulle reste dans son disque (la plus forte),
-// les bulles reliées se rapprochent, et les bulles se repoussent
-// pour ne pas se chevaucher.
+// Quatre règles : chaque bulle reste dans son disque (la plus forte),
+// les bulles reliées se rapprochent, les groupes s'écartent les uns des
+// autres, et les bulles se repoussent pour ne pas se chevaucher.
+// alphaDecay règle la durée de l'animation : plus il est petit, plus le
+// mouvement dure longtemps en ralentissant (ici environ 40 secondes).
 const simulation = d3.forceSimulation()
+  .alphaDecay(0.003)
   .force("disque", forceDisque)
   .force("liens", forceLiens)
+  .force("groupes", forceGroupes)
   .force("ecart", d3.forceCollide(RAYON_BULLE + 14))
   .on("tick", mettreAJourPositions);
 
@@ -262,6 +351,7 @@ function dessinerCarte() {
   afficherSelection();
   mettreAJourPositions();
   simulation.nodes(relations);
+  calculerGroupes();
   // D3 transforme les liens qu'on lui donne : on lui passe donc des copies,
   // sans les liens "se détestent" qui n'attirent pas.
   forceLiens.links(

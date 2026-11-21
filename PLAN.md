@@ -79,3 +79,9 @@ export / import de fichier.
   fort, amis moyen, se connaissent léger, se détestent aucun), sans jamais
   sortir de leur disque. Réglages `attraction` / `distance` dans
   `TYPES_DE_LIEN` (`js/donnees.js`).
+- 2026-11-21 : les groupes (personnes reliées directement ou indirectement,
+  hors « se détestent » ; une personne seule = un groupe) se répartissent
+  uniformément autour du centre, comme des convives autour d'une table
+  ronde. Mouvement lent qui ralentit progressivement (~40 s). Réglages
+  `ECARTEMENT_GROUPES`, `VITESSE_MAX_GROUPES` et `alphaDecay` dans
+  `js/carte.js`.
