@@ -79,11 +79,17 @@ h1 {
 
 #carte:active { cursor: grabbing; }
 
+/* Les anneaux de proximité : cachés par défaut, ils apparaissent en fondu
+   seulement quand on ajoute ou modifie une personne dans le panneau. */
 .anneau {
-  fill-opacity: 0.12;
-  stroke-opacity: 0.35;
+  fill-opacity: 0.06;
+  stroke-opacity: 0.2;
   stroke-width: 1.5;
+  opacity: 0;
+  transition: opacity 0.4s;
 }
+
+#carte.anneaux-visibles .anneau { opacity: 1; }
 
 
 .moi circle { fill: var(--texte); }

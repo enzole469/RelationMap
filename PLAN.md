@@ -85,3 +85,6 @@ export / import de fichier.
   ronde. Mouvement lent qui ralentit progressivement (~40 s). Réglages
   `ECARTEMENT_GROUPES`, `VITESSE_MAX_GROUPES` et `alphaDecay` dans
   `js/carte.js`.
+- 2026-11-21 : les anneaux de proximité sont cachés au repos et
+  n'apparaissent (en fondu, très transparents) que lorsque le panneau
+  d'ajout / modification d'une personne est ouvert.

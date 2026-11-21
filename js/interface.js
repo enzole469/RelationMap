@@ -146,14 +146,19 @@ document.getElementById("supprimer-lien").addEventListener("click", () => {
 // Ouvrir et fermer le panneau
 // ===========================================================================
 
+const carte = document.getElementById("carte");
+
 function afficherVue(vue) {
   vueRelation.hidden = vue !== vueRelation;
   vueLien.hidden = vue !== vueLien;
   panneau.hidden = false;
+  // Les anneaux ne sont visibles que pendant l'édition d'une personne.
+  carte.classList.toggle("anneaux-visibles", vue === vueRelation);
 }
 
 function fermerPanneau() {
   panneau.hidden = true;
+  carte.classList.remove("anneaux-visibles");
   relationOuverte = null;
   paireOuverte = null;
   lienOuvert = null;
@@ -170,7 +175,7 @@ quandOnCliqueUnLien = (lien) =>
   ouvrirLien(trouverRelation(lien.de), trouverRelation(lien.vers));
 
 // Un clic sur le fond de la carte ou la touche Échap ferment le panneau.
-document.getElementById("carte").addEventListener("click", fermerPanneau);
+carte.addEventListener("click", fermerPanneau);
 document.addEventListener("keydown", (evenement) => {
   if (evenement.key === "Escape") fermerPanneau();
 });
