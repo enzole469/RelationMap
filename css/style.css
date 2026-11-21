@@ -58,11 +58,14 @@ h1 { order: 1; }
   font-weight: 600;
 }
 
-/* Légendes des cercles et des types de liens */
+/* Légendes des cercles et des types de liens (elles se replient sur
+   elles-mêmes plutôt que de pousser les boutons à la ligne) */
 .legendes {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 1 1 260px;
+  min-width: 0;
 }
 
 #legende,

@@ -202,3 +202,12 @@ supplémentaires sur les personnes) ou une des questions en suspens.
   du moteur : un paquet détecté ne reprend l'identité d'un groupe connu que
   s'il a au moins un vrai membre en commun avec lui (une personne seule
   était rattachée à tort à un groupe créé à la main).
+- 2026-11-22 : couples. Chaque lien « En couple » forme un groupe de deux,
+  nommé « Prénom1 & Prénom2 » (le plus proche d'abord) ; dans un groupe
+  plus grand, c'est un sous-groupe. Renommable, supprimable (pas recréé),
+  disparaît avec le lien. Les autres groupes détectés gardent un minimum de
+  3 personnes.
+- 2026-11-22 : un groupe qui apparaît suite à une modification s'affiche
+  ouvert (sinon un nouveau couple faisait disparaître les deux personnes en
+  pleine édition) ; au chargement et après un import, tout est replié.
+  Le halo d'un groupe ouvert repousse les bulles qui n'en font pas partie.

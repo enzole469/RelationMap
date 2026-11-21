@@ -261,6 +261,7 @@ let relationsParId = new Map();
 // Les "noeuds" sont tout ce qui est dessiné et bouge sur la carte : les
 // personnes visibles et les bulles des groupes repliés.
 const groupesOuverts = new Set();     // identifiants des groupes ouverts
+const groupesDejaVus = new Set();     // groupes déjà affichés au moins une fois
 const noeudsGroupes = new Map();      // id de groupe -> sa bulle (si replié)
 let noeuds = [];                      // ce qui est affiché et animé
 let noeudsParId = new Map();
@@ -341,6 +342,16 @@ function construireNoeuds() {
       }
     }
   }
+  // Un groupe qui apparaît suite à une modification (un nouveau couple, un
+  // nouveau groupe détecté...) s'affiche ouvert, pour que les personnes
+  // qu'on vient de modifier restent visibles. Au chargement, tout est replié.
+  for (const g of groupesActuels) {
+    if (groupesDejaVus.has(g.id)) continue;
+    groupesDejaVus.add(g.id);
+    if (!donneesNeuves) groupesOuverts.add(g.id);
+  }
+  donneesNeuves = false;
+
   const masques = new Set(groupesActuels.filter(groupeMasque).map((g) => g.id));
   for (const id of [...noeudsGroupes.keys()]) {
     if (!existants.has(id) || groupesOuverts.has(id) || masques.has(id)) noeudsGroupes.delete(id);
@@ -686,6 +697,28 @@ function forceEcartGroupes() {
   }
 }
 
+// Le halo d'un groupe ouvert repousse les bulles qui n'en font pas partie
+// (sauf les bulles en transparence, qui se superposent à leurs membres).
+function forceHalos() {
+  for (const g of groupesActuels) {
+    if (!groupesOuverts.has(g.id) || groupeMasque(g)) continue;
+    const dedans = new Set(g.membres.map((r) => noeudVisibleDe(r.id)).filter(Boolean));
+    if (!dedans.size) continue;
+    const c = centreDe([...dedans]);
+    const rayon = d3.max([...dedans], (r) => Math.hypot(r.x - c.x, r.y - c.y) + rayonBulle(r)) + 18;
+    for (const n of noeuds) {
+      if (dedans.has(n) || (estGroupe(n) && n.fantome)) continue;
+      const min = rayon + (estGroupe(n) ? rayonBulle(n) : rayonAvecNom(n));
+      const dx = n.x - c.x, dy = n.y - c.y;
+      const d = Math.hypot(dx, dy) || 1;
+      if (d >= min) continue;
+      const k = ((min - d) / d) * 0.3;
+      n.vx += dx * k;
+      n.vy += dy * k;
+    }
+  }
+}
+
 // --- Ranger la carte ---------------------------------------------------------
 
 // Range la carte "en parts de gâteau" : chaque paquet reçoit une part du
@@ -811,6 +844,7 @@ const simulation = d3.forceSimulation()
   .force("groupes", forceGroupes)
   .force("ecart", d3.forceCollide((n) => (estGroupe(n) ? 0 : rayonAvecNom(n))))
   .force("ecartGroupes", forceEcartGroupes)
+  .force("halos", forceHalos)
   .on("tick", mettreAJourPositions)
   .on("end", enregistrer); // les bulles se sont arrêtées : on garde leur place
 

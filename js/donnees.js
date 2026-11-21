@@ -203,8 +203,14 @@ function verifierDonnees(donnees) {
   return { relations: relationsPropres, liens: liensPropres, groupes: groupesPropres };
 }
 
+// Vrai juste après un chargement ou un import : les groupes s'affichent alors
+// repliés. Ensuite, un groupe qui apparaît suite à une modification
+// s'affiche ouvert (voir carte.js).
+let donneesNeuves = true;
+
 // Remplace toutes les données actuelles par des données vérifiées.
 function remplacerDonnees(donneesVerifiees) {
+  donneesNeuves = true;
   relations.splice(0, relations.length, ...donneesVerifiees.relations);
   liens.splice(0, liens.length, ...donneesVerifiees.liens);
   groupesConnus.splice(0, groupesConnus.length, ...(donneesVerifiees.groupes || []));

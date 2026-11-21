@@ -33,4 +33,8 @@ function chargerExemples() {
     liens: LIENS_EXEMPLE.map((l) => ({ ...l })),
   });
   dessinerCarte();
+  // Tous les groupes (dont le couple Alice & Bruno) sont ouverts : les tests
+  // généraux manipulent directement les bulles des personnes.
+  for (const g of groupesActuels) groupesOuverts.add(g.id);
+  dessinerCarte();
 }

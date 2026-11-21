@@ -155,6 +155,12 @@ function nomAutomatique(prenom) {
   return /^[aeiouyhàâäéèêëîïôöûüœ]/i.test(prenom) ? "Groupe d'" + prenom : "Groupe de " + prenom;
 }
 
+// "Maman & Papa" : la personne la plus proche de moi d'abord.
+function nomDeCouple([a, b]) {
+  const [p, q] = [a, b].sort((x, y) => x.cercle - y.cercle || x.nom.localeCompare(y.nom));
+  return `${p.nom} & ${q.nom}`;
+}
+
 // Choix manuel d'une personne pour un groupe : true, false ou undefined.
 const choixPour = (r, idGroupe) => (r.choixGroupes ? r.choixGroupes[idGroupe] : undefined);
 
@@ -194,6 +200,23 @@ function calculerGroupes() {
     if (meilleur) disponibles.splice(disponibles.indexOf(meilleur), 1);
     trouves.push({ connu: meilleur, ids });
   }
+  // Chaque couple forme un groupe à deux ("Alice & Bruno").
+  const memeEnsemble = (liste, ids) => liste.length === 2 && ids.every((id) => liste.includes(id));
+  for (const l of liens.filter((x) => x.type === "couple")) {
+    const a = parId.get(l.de), b = parId.get(l.vers);
+    if (!a || !b || a.horsGroupesAuto || b.horsGroupesAuto) continue;
+    const ids = [a.id, b.id].sort();
+    if (refuses.some((g) => memeEnsemble(g.membres, ids))) continue; // couple refusé
+    const deja = trouves.find((t) => memeEnsemble(t.ids, ids));
+    if (deja) { deja.couple = [a, b]; continue; }
+    const connu = disponibles.find((g) => memeEnsemble(g.membres, ids));
+    if (connu) {
+      disponibles.splice(disponibles.indexOf(connu), 1);
+      if (connu.supprime) { refuses.push({ ...connu, membres: ids }); continue; } // couple refusé
+    }
+    trouves.push({ connu, ids, couple: [a, b] });
+  }
+
   // les groupes créés ou nommés par l'utilisateur, pas retrouvés par la détection
   for (const g of disponibles) {
     if (g.supprime) refuses.push(g);
@@ -202,8 +225,9 @@ function calculerGroupes() {
 
   // 3. Membres : principaux, puis secondaires (une bonne part des liens va
   //    vers le groupe), puis corrections de l'utilisateur.
-  const groupes = trouves.map(({ connu, ids }) => ({
+  const groupes = trouves.map(({ connu, ids, couple }) => ({
     id: connu ? connu.id : nouvelIdentifiant("g"),
+    couple,
     nomChoisi: Boolean(connu && connu.nomChoisi),
     nomConnu: connu ? connu.nom : null,
     principaux: new Set(ids),
@@ -265,12 +289,15 @@ function calculerGroupes() {
   groupesActuels = [];
   groupesDePersonne.clear();
   principalDe.clear();
-  for (const g of groupes) for (const id of g.principaux) principalDe.set(id, g.id);
+  // (le groupe principal d'une personne est son grand groupe, pas son couple)
+  for (const g of groupes) if (!g.couple) for (const id of g.principaux) principalDe.set(id, g.id);
+  for (const g of groupes) if (g.couple) for (const id of g.principaux) if (!principalDe.has(id)) principalDe.set(id, g.id);
   const nouveauxConnus = [];
   for (const g of groupes) {
     const membres = [...g.membresIds].map((id) => parId.get(id)).filter(Boolean);
-    const affichable = membres.length >= (g.nomChoisi ? TAILLE_MIN_GROUPE_NOMME : TAILLE_MIN_GROUPE);
+    const affichable = membres.length >= (g.nomChoisi || g.couple ? TAILLE_MIN_GROUPE_NOMME : TAILLE_MIN_GROUPE);
     const nom = g.nomChoisi ? g.nomConnu
+      : g.couple ? nomDeCouple(g.couple)
       : membres.length ? nomAutomatique(personneCentrale(membres).nom) : g.nomConnu || "Groupe";
     nouveauxConnus.push({ id: g.id, nom, nomChoisi: g.nomChoisi, membres: membres.map((r) => r.id) });
     if (!affichable) continue;
