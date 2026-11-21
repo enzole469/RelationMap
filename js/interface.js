@@ -303,6 +303,8 @@ function afficherVue(vue) {
 function fermerPanneau() {
   basculerMenu(false);
   panneau.hidden = true;
+  // en mode Groupes, les membres du groupe choisi restent mis en avant
+  setTimeout(() => { if (modeEdition === "groupes") afficherOutilsGroupes(); });
   carte.classList.toggle("anneaux-visibles", modeEdition === "disques");
   mettreEnAvantAnneau(null);
   relationOuverte = null;
@@ -319,6 +321,7 @@ document.getElementById("bouton-fermer").addEventListener("click", fermerPanneau
 // Clic sur une bulle : on ouvre sa fiche, et la carte glisse si besoin pour
 // montrer "moi", cette personne et ses relations (sans changer le zoom).
 quandOnCliqueUneBulle = (relation) => {
+  if (modeEdition === "groupes") return basculerDansGroupeEdite(relation);
   ouvrirPourModifier(relation);
   cadrerPersonne(relation, panneau.getBoundingClientRect());
 };
@@ -345,6 +348,12 @@ let idGroupeOuvert = null;
 // En mode édition, le clic ouvre seulement le groupe, pour pouvoir
 // modifier ses membres.
 quandOnCliqueUnGroupe = (groupe) => {
+  if (modeEdition === "groupes") {
+    // toucher le halo d'un groupe le choisit dans la liste
+    groupeEdite = groupe.id;
+    afficherOutilsGroupes();
+    return;
+  }
   if (modeEdition) {
     ouvrirGroupe(groupe.id);
     return;
@@ -420,6 +429,7 @@ let outilLien = "ami";
 const CONSIGNES = {
   disques: "Faites glisser une bulle dans un autre disque pour changer sa proximité.",
   liens: "Choisissez un outil, puis faites glisser une bulle sur une autre (ou touchez un trait).",
+  groupes: "Choisissez un groupe, puis touchez une personne pour l'y ajouter ou l'en retirer.",
 };
 
 // Les outils de lien : un bouton par type, plus "Effacer".
@@ -443,6 +453,8 @@ function afficherBarreEdition() {
     onglet.setAttribute("aria-selected", String(onglet.dataset.mode === modeEdition));
   }
   outilsLiens.hidden = modeEdition !== "liens";
+  outilsGroupes.hidden = modeEdition !== "groupes";
+  if (modeEdition === "groupes") afficherOutilsGroupes();
   for (const bouton of outilsLiens.querySelectorAll("button.outil")) {
     bouton.classList.toggle("choisi", bouton.dataset.outil === outilLien);
   }
@@ -455,6 +467,9 @@ function afficherBarreEdition() {
 function choisirModeEdition(mode) {
   fermerPanneau();
   changerModeEdition(mode);
+  if (mode !== "groupes") selectionner(); // plus de membres mis en avant
+  formulaireGroupeEdition.hidden = true;
+  confirmationSuppressionGroupe.hidden = true;
   afficherBarreEdition();
 }
 
@@ -462,6 +477,7 @@ boutonEdition.addEventListener("click", () =>
   choisirModeEdition(modeEdition === null ? "liens" : null));
 document.getElementById("onglet-disques").addEventListener("click", () => choisirModeEdition("disques"));
 document.getElementById("onglet-liens").addEventListener("click", () => choisirModeEdition("liens"));
+document.getElementById("onglet-groupes").addEventListener("click", () => choisirModeEdition("groupes"));
 document.getElementById("terminer-edition").addEventListener("click", () => choisirModeEdition(null));
 
 // Applique l'outil de lien choisi entre deux personnes.
@@ -483,6 +499,107 @@ function appliquerOutilLien(a, b) {
 }
 
 quandOnRelieDeuxBulles = appliquerOutilLien;
+
+// --- Onglet Groupes : créer, renommer, supprimer, ajouter / retirer -----------
+
+const outilsGroupes = document.getElementById("outils-groupes");
+const selectGroupeEdite = document.getElementById("groupe-edite");
+const formulaireGroupeEdition = document.getElementById("formulaire-groupe-edition");
+const champNomGroupeEdition = document.getElementById("nom-groupe-edition");
+const confirmationSuppressionGroupe = document.getElementById("confirmation-suppression-groupe");
+let groupeEdite = null;            // identifiant du groupe choisi
+let actionFormulaireGroupe = null; // "creer" ou "renommer"
+
+// Remplit la liste des groupes, et fait ressortir les membres du groupe choisi.
+function afficherOutilsGroupes() {
+  const groupes = groupesModifiables();
+  if (!groupes.some((g) => g.id === groupeEdite)) groupeEdite = groupes.length ? groupes[0].id : null;
+  selectGroupeEdite.innerHTML = "";
+  for (const g of groupes) {
+    const o = document.createElement("option");
+    o.value = g.id;
+    o.textContent = `${g.nom} (${membresDuGroupe(g.id).length})`;
+    selectGroupeEdite.append(o);
+  }
+  if (!groupes.length) {
+    const o = document.createElement("option");
+    o.textContent = "Aucun groupe : créez-en un";
+    selectGroupeEdite.append(o);
+  }
+  selectGroupeEdite.disabled = !groupes.length;
+  if (groupeEdite) selectGroupeEdite.value = groupeEdite;
+  document.getElementById("renommer-groupe").disabled = !groupeEdite;
+  document.getElementById("supprimer-groupe").disabled = !groupeEdite;
+  selectionner(groupeEdite ? membresDuGroupe(groupeEdite).map((r) => r.id) : []);
+}
+
+selectGroupeEdite.addEventListener("change", () => {
+  groupeEdite = selectGroupeEdite.value;
+  afficherOutilsGroupes();
+});
+
+function ouvrirFormulaireGroupe(action) {
+  actionFormulaireGroupe = action;
+  confirmationSuppressionGroupe.hidden = true;
+  formulaireGroupeEdition.hidden = false;
+  champNomGroupeEdition.value = action === "renommer" ? trouverGroupe(groupeEdite).nom : "";
+  champNomGroupeEdition.focus();
+}
+
+document.getElementById("nouveau-groupe").addEventListener("click", () => ouvrirFormulaireGroupe("creer"));
+document.getElementById("renommer-groupe").addEventListener("click", () => ouvrirFormulaireGroupe("renommer"));
+document.getElementById("annuler-groupe-edition").addEventListener("click", () => {
+  formulaireGroupeEdition.hidden = true;
+});
+
+formulaireGroupeEdition.addEventListener("submit", (evenement) => {
+  evenement.preventDefault();
+  const nom = champNomGroupeEdition.value.trim();
+  if (nom === "") return;
+  if (actionFormulaireGroupe === "creer") {
+    groupeEdite = creerGroupe(nom).id;
+    afficherToast(`Groupe « ${nom} » créé : touchez des personnes pour l'y ajouter.`);
+  } else {
+    renommerGroupe(groupeEdite, nom);
+    afficherToast(`Groupe renommé : ${nom}.`);
+  }
+  formulaireGroupeEdition.hidden = true;
+  dessinerCarte();
+  afficherOutilsGroupes();
+});
+
+document.getElementById("supprimer-groupe").addEventListener("click", () => {
+  formulaireGroupeEdition.hidden = true;
+  const g = trouverGroupe(groupeEdite);
+  document.getElementById("texte-suppression-groupe").textContent =
+    `Supprimer « ${g.nom} » ? Ses membres ne seront plus dans aucun groupe.`;
+  confirmationSuppressionGroupe.hidden = false;
+});
+
+document.getElementById("non-supprimer-groupe").addEventListener("click", () => {
+  confirmationSuppressionGroupe.hidden = true;
+});
+
+document.getElementById("oui-supprimer-groupe").addEventListener("click", () => {
+  const nom = trouverGroupe(groupeEdite).nom;
+  supprimerGroupe(groupeEdite);
+  groupeEdite = null;
+  confirmationSuppressionGroupe.hidden = true;
+  dessinerCarte();
+  afficherOutilsGroupes();
+  afficherToast(`Groupe « ${nom} » supprimé.`);
+});
+
+// Toucher une personne en mode Groupes : elle entre dans le groupe choisi, ou
+// en sort si elle en faisait partie.
+function basculerDansGroupeEdite(relation) {
+  if (!groupeEdite) return afficherToast("Créez d'abord un groupe avec « + Nouveau ».");
+  const nomGroupe = trouverGroupe(groupeEdite).nom;
+  const ajoutee = basculerMembre(relation.id, groupeEdite);
+  dessinerCarte();
+  afficherOutilsGroupes();
+  afficherToast(ajoutee ? `${relation.nom} ajouté·e à « ${nomGroupe} ».` : `${relation.nom} retiré·e de « ${nomGroupe} ».`);
+}
 
 // Une bulle lâchée dans un autre disque change de niveau.
 quandOnChangeDeDisque = (relation, niveau) => {

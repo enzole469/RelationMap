@@ -61,6 +61,9 @@ supplémentaires sur les personnes) ou une des questions en suspens.
 ## Questions en suspens
 
 - Afficher la liste des liens d'une personne dans sa fiche ?
+- Quand tous les groupes sont ouverts (onglet Groupes), leurs halos se
+  chevauchent : à revoir avec une organisation plus claire de la carte
+  (« arborescence » évoquée par l'utilisateur).
 - Groupes : régler la finesse de la détection si les groupes trouvés sont
   trop gros ou trop petits sur les vraies données. Sur téléphone, en vue
   d'ensemble, le nom d'un groupe d'intimes peut toucher « Moi ».
@@ -155,3 +158,12 @@ supplémentaires sur les personnes) ou une des questions en suspens.
   Liens, glisser une bulle ne fige plus les autres.
 - Format des données version 2 (groupes) ; les fichiers version 1 restent
   acceptés à l'import.
+- 2026-11-22 : mode édition, onglet « Groupes » : choisir un groupe, le créer
+  (+ Nouveau), le renommer, le supprimer (ses membres passent « hors
+  groupe », sinon la détection le recréerait) ; toucher une personne l'ajoute
+  au groupe choisi ou l'en retire. Tous les groupes s'ouvrent dans cet
+  onglet et se replient en sortant ; la carte y reste immobile. Un groupe
+  nommé par l'utilisateur s'affiche dès 2 membres (3 pour un groupe détecté).
+- 2026-11-22 : stabilité. La poussée de répartition est partagée entre les
+  bulles d'un paquet et la rotation d'ensemble est annulée (la carte ne
+  tourne plus comme un manège) ; animation raccourcie (~20 s).

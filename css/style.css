@@ -650,6 +650,47 @@ button.fermer {
 
 #outils-liens[hidden] { display: none; }
 
+/* Outils de l'onglet Groupes */
+#outils-groupes {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+}
+
+#outils-groupes[hidden],
+#formulaire-groupe-edition[hidden],
+#confirmation-suppression-groupe[hidden] { display: none; }
+
+#groupe-edite {
+  max-width: 220px;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 0.9rem;
+  border: 2px solid var(--texte);
+  border-radius: 999px;
+  background: white;
+}
+
+#formulaire-groupe-edition,
+#confirmation-suppression-groupe {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  flex-basis: 100%;
+  font-size: 0.9rem;
+}
+
+#nom-groupe-edition {
+  padding: 6px 10px;
+  font: inherit;
+  border: 1px solid #d6cfc3;
+  border-radius: 8px;
+}
+
 button.outil {
   display: inline-flex;
   align-items: center;
@@ -711,6 +752,10 @@ button.outil-effacer.choisi { border-color: #a8321f; background: #fbf0ee; }
   #barre-edition { top: 8px; padding: 8px; gap: 6px; width: calc(100% - 16px); max-width: none; }
   .onglets { order: 1; }
   #terminer-edition { order: 2; }
+  #outils-groupes { order: 3; flex-basis: 100%; }
+  #groupe-edite { font-size: 1rem; max-width: 100%; }
+  #nom-groupe-edition { font-size: 1rem; flex: 1; min-width: 0; }
+
   #outils-liens {
     order: 3;
     flex-basis: 100%;

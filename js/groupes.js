@@ -14,7 +14,9 @@
 // (ou hors de tout groupe) : ces choix sont gardés dans les données.
 
 const POIDS_GROUPE = { couple: 3, ami: 2, connaissance: 1, conflit: 0 };
-const TAILLE_MIN_GROUPE = 3; // en dessous, pas de grosse bulle de groupe
+const TAILLE_MIN_GROUPE = 3; // en dessous, pas de grosse bulle de groupe...
+const TAILLE_MIN_GROUPE_NOMME = 2; // ... sauf pour un groupe nommé par l'utilisateur
+const tailleMin = (connu) => (connu && connu.nomChoisi ? TAILLE_MIN_GROUPE_NOMME : TAILLE_MIN_GROUPE);
 
 // --- La méthode de Louvain -----------------------------------------------------
 
@@ -167,7 +169,7 @@ function calculerGroupes() {
     const id = connu ? connu.id : nouvelIdentifiant("g");
     const membres = ids.map((i) => parId.get(i))
       .concat(placees.filter((r) => r.groupe === id));
-    if (membres.length < TAILLE_MIN_GROUPE) {
+    if (membres.length < tailleMin(connu)) {
       // trop petit pour être affiché, mais on garde son nom
       if (connu) nouveauxConnus.push({ ...connu, membres: membres.map((r) => r.id) });
       continue;
@@ -183,7 +185,7 @@ function calculerGroupes() {
   for (const g of disponibles) {
     if (!g.nomChoisi) continue;
     const membres = placees.filter((r) => r.groupe === g.id);
-    if (membres.length >= TAILLE_MIN_GROUPE) {
+    if (membres.length >= TAILLE_MIN_GROUPE_NOMME) {
       const groupe = { id: g.id, nom: g.nom, nomChoisi: true, membres };
       groupesActuels.push(groupe);
       for (const r of membres) groupeDePersonne.set(r.id, groupe);
@@ -223,4 +225,43 @@ function placerDansGroupe(idRelation, idGroupe) {
   const r = trouverRelation(idRelation);
   if (idGroupe) r.groupe = idGroupe;
   else delete r.groupe;
+}
+
+// --- Créer, modifier, supprimer un groupe (mode édition « Groupes ») -----------
+
+// Crée un groupe vide, à ce nom. Il s'affiche dès qu'il a 2 membres.
+function creerGroupe(nom) {
+  const g = { id: nouvelIdentifiant("g"), nom, nomChoisi: true, membres: [] };
+  groupesConnus.push(g);
+  return g;
+}
+
+// Les membres d'un groupe : ceux que le calcul y a mis, et ceux qu'on y a
+// placés à la main (même si le groupe est encore trop petit pour s'afficher).
+function membresDuGroupe(id) {
+  return relations.filter((r) => r.groupe === id || (groupeDePersonne.get(r.id) || {}).id === id);
+}
+
+// Ajoute une personne au groupe, ou l'en retire si elle en fait déjà partie
+// (elle passe alors « hors groupe »). Renvoie true si elle a été ajoutée.
+function basculerMembre(idRelation, idGroupe) {
+  const r = trouverRelation(idRelation);
+  const dedans = membresDuGroupe(idGroupe).includes(r);
+  r.groupe = dedans ? "aucun" : idGroupe;
+  return !dedans;
+}
+
+// Supprime un groupe. Ses membres passent « hors groupe » : sinon le calcul
+// automatique recréerait aussitôt le même groupe.
+function supprimerGroupe(id) {
+  for (const r of membresDuGroupe(id)) r.groupe = "aucun";
+  const i = groupesConnus.findIndex((g) => g.id === id);
+  if (i !== -1) groupesConnus.splice(i, 1);
+}
+
+// Tous les groupes qu'on peut modifier : ceux affichés, puis les groupes
+// nommés encore trop petits pour s'afficher.
+function groupesModifiables() {
+  return groupesActuels.concat(groupesConnus.filter((g) =>
+    g.nomChoisi && !groupesActuels.some((a) => a.id === g.id)));
 }

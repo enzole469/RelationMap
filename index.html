@@ -48,8 +48,30 @@
       <div class="onglets" role="tablist">
         <button id="onglet-disques" role="tab" data-mode="disques">Disques</button>
         <button id="onglet-liens" role="tab" data-mode="liens">Liens</button>
+        <button id="onglet-groupes" role="tab" data-mode="groupes">Groupes</button>
       </div>
       <div id="outils-liens" hidden></div>
+
+      <!-- Outils de l'onglet Groupes : choisir, créer, renommer, supprimer -->
+      <div id="outils-groupes" hidden>
+        <select id="groupe-edite" aria-label="Groupe à modifier"></select>
+        <button id="nouveau-groupe" class="outil">+ Nouveau</button>
+        <button id="renommer-groupe" class="outil">Renommer</button>
+        <button id="supprimer-groupe" class="outil outil-effacer">✕ Supprimer</button>
+
+        <form id="formulaire-groupe-edition" hidden>
+          <input id="nom-groupe-edition" type="text" maxlength="40" autocomplete="off"
+                 placeholder="Nom du groupe" aria-label="Nom du groupe" required>
+          <button type="submit" class="principal">OK</button>
+          <button type="button" id="annuler-groupe-edition">Annuler</button>
+        </form>
+
+        <div id="confirmation-suppression-groupe" hidden>
+          <span id="texte-suppression-groupe"></span>
+          <button id="oui-supprimer-groupe" class="danger">Supprimer</button>
+          <button id="non-supprimer-groupe">Annuler</button>
+        </div>
+      </div>
       <p id="consigne-edition"></p>
       <button id="terminer-edition" class="principal">Terminer</button>
     </div>

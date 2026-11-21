@@ -277,6 +277,16 @@ function construireNoeuds() {
   // Les groupes disparus ne sont plus ouverts ni repliés.
   const existants = new Set(groupesActuels.map((g) => g.id));
   for (const id of [...groupesOuverts]) if (!existants.has(id)) groupesOuverts.delete(id);
+  // En mode Groupes, tous les groupes restent ouverts (y compris ceux qui
+  // apparaissent pendant l'édition).
+  if (modeEdition === "groupes") {
+    for (const g of groupesActuels) {
+      if (!groupesOuverts.has(g.id)) {
+        ouvertsParLeModeGroupes.add(g.id);
+        groupesOuverts.add(g.id);
+      }
+    }
+  }
   for (const id of [...noeudsGroupes.keys()]) {
     if (!existants.has(id) || groupesOuverts.has(id)) noeudsGroupes.delete(id);
   }
@@ -472,7 +482,8 @@ function forceGroupes(alpha) {
              part: (2 * Math.PI * u.poids) / total };
   });
 
-  centres.forEach((centre, i) => {
+  // On calcule d'abord la poussée de chaque paquet...
+  const poussees = centres.map((centre, i) => {
     // Somme des poussées des autres paquets : chacun pousse d'autant plus
     // fort que l'espace libre entre les deux parts est petit.
     let somme = 0;
@@ -486,16 +497,26 @@ function forceGroupes(alpha) {
     // La racine carrée fait durer cette poussée plus longtemps que les
     // autres règles pendant que l'animation ralentit : les paquets ont le
     // temps de finir de se répartir.
-    let poussee = ECARTEMENT_GROUPES * Math.sqrt(alpha) * somme;
-    poussee = Math.max(-VITESSE_MAX_GROUPES, Math.min(VITESSE_MAX_GROUPES, poussee));
+    const poussee = ECARTEMENT_GROUPES * Math.sqrt(alpha) * somme;
+    return Math.max(-VITESSE_MAX_GROUPES, Math.min(VITESSE_MAX_GROUPES, poussee));
+  });
 
-    // On pousse tout le paquet le long du cercle (perpendiculairement
-    // à la direction de "moi"), sans le rapprocher ni l'éloigner du centre.
+  // ... puis on retire la poussée moyenne : les paquets s'écartent les uns
+  // des autres, mais la carte entière ne tourne pas comme un manège.
+  const moyenne = d3.mean(poussees);
+
+  centres.forEach((centre, i) => {
+    const poussee = poussees[i] - moyenne;
+    // On pousse le paquet le long du cercle (perpendiculairement à la
+    // direction de "moi"), sans le rapprocher ni l'éloigner du centre.
+    // La poussée est partagée entre ses bulles : un grand paquet ouvert ne
+    // reçoit pas plus d'élan qu'une personne seule.
     const tx = -centre.y / centre.distance;
     const ty = centre.x / centre.distance;
+    const part = poussee / unitesVisibles[i].noeuds.length;
     for (const r of unitesVisibles[i].noeuds) {
-      r.vx += tx * poussee;
-      r.vy += ty * poussee;
+      r.vx += tx * part;
+      r.vy += ty * part;
     }
   });
 }
@@ -597,9 +618,9 @@ const forceLiens = d3.forceLink()
 // les bulles reliées se rapprochent, les groupes s'écartent les uns des
 // autres, et les bulles se repoussent pour ne pas se chevaucher.
 // alphaDecay règle la durée de l'animation : plus il est petit, plus le
-// mouvement dure longtemps en ralentissant (ici environ 40 secondes).
+// mouvement dure longtemps en ralentissant (ici environ 20 secondes).
 const simulation = d3.forceSimulation()
-  .alphaDecay(0.003)
+  .alphaDecay(0.006)
   .force("disque", forceDisque)
   .force("liens", forceLiens)
   .force("groupes", forceGroupes)
@@ -625,19 +646,42 @@ let niveauVise = null;
 // (définie dans interface.js).
 let quandOnChangeDeDisque = () => {};
 
-// En mode Liens, la carte reste immobile pour qu'on puisse enchaîner les
-// liens sans que les bulles bougent ; en sortant de ce mode, elle reprend
-// son mouvement (les personnes nouvellement liées se rapprochent).
+// En modes Liens et Groupes, la carte reste immobile pour qu'on puisse
+// enchaîner les modifications sans que les bulles bougent ; en sortant, elle
+// reprend son mouvement.
+const carteImmobile = (mode) => mode === "liens" || mode === "groupes";
+
+// Groupes ouverts automatiquement en entrant dans le mode Groupes (ils sont
+// repliés en sortant).
+const ouvertsParLeModeGroupes = new Set();
+
 function changerModeEdition(mode) {
   const avant = modeEdition;
   modeEdition = mode;
-  if (mode === "liens") simulation.stop();
-  else if (avant === "liens") simulation.alpha(0.5).restart();
+  if (mode === "groupes" && avant !== "groupes") {
+    // tous les groupes s'ouvrent, pour que chaque personne soit accessible
+    for (const g of groupesActuels) {
+      if (!groupesOuverts.has(g.id)) {
+        ouvertsParLeModeGroupes.add(g.id);
+        const n = noeudsGroupes.get(g.id);
+        if (n) { recalerMembres(n); espacerMembres(g.membres); }
+        groupesOuverts.add(g.id);
+      }
+    }
+    dessinerCarte();
+  }
+  if (avant === "groupes" && mode !== "groupes") {
+    for (const id of ouvertsParLeModeGroupes) groupesOuverts.delete(id);
+    ouvertsParLeModeGroupes.clear();
+    dessinerCarte();
+  }
+  if (carteImmobile(mode)) simulation.stop();
+  else if (carteImmobile(avant)) simulation.alpha(0.5).restart();
 }
 
-// Relance l'animation, sauf en mode Liens où la carte reste immobile.
+// Relance l'animation, sauf dans les modes où la carte reste immobile.
 function relancerAnimation(alpha) {
-  if (modeEdition === "liens") return;
+  if (carteImmobile(modeEdition)) return;
   simulation.alpha(alpha).restart();
 }
 
@@ -662,12 +706,14 @@ function bulleSousLePointeur(x, y, deplacee) {
 
 const glisser = d3.drag()
   // En mode édition, les bulles de groupe ne se déplacent pas (il faut
-  // ouvrir le groupe pour modifier ses membres).
-  .filter((evenement, n) => !evenement.ctrlKey && !evenement.button && !(estGroupe(n) && modeEdition))
+  // ouvrir le groupe pour modifier ses membres) ; en mode Groupes, on touche
+  // les personnes sans les déplacer.
+  .filter((evenement, n) => !evenement.ctrlKey && !evenement.button &&
+    !(estGroupe(n) && modeEdition) && modeEdition !== "groupes")
   .on("start", (evenement, r) => {
     // L'animation est relancée pour que les autres bulles s'écartent
     // pendant qu'on déplace celle-ci (inutile en mode Liens : rien ne bouge).
-    if (!evenement.active && modeEdition !== "liens") simulation.alphaTarget(0.3).restart();
+    if (!evenement.active && !carteImmobile(modeEdition)) simulation.alphaTarget(0.3).restart();
     positionDeDepart = { x: r.x, y: r.y };
     r.fx = r.x;
     r.fy = r.y;
