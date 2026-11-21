@@ -156,6 +156,7 @@ button.filtre-lien.masque {
 /* Groupe replié : grosse bulle blanche au contour coloré, nombre de membres
    au centre, nom en gras dessous */
 .bulle-groupe .disque {
+  fill-opacity: 0.8; /* bulles qui se recouvrent : on voit les deux */
   stroke-width: 4;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
 }
@@ -173,8 +174,10 @@ button.filtre-lien.masque {
 /* Trait regroupé (vers un groupe replié) */
 .lien-regroupe .lien-trait { opacity: 0.45; }
 
-/* Trait d'appartenance : une personne qui fait le pont, vers ses groupes */
-.lien-appartenance .lien-trait { opacity: 0.7; }
+/* Groupe replié dont un membre est visible (un autre de ses groupes est
+   ouvert) : la bulle s'affiche en transparence, superposée à ce membre */
+.bulle-groupe.fantome { opacity: 0.35; }
+.bulle-groupe.fantome text.compte { display: none; }
 
 /* Groupe ouvert : halo discret autour de ses membres, avec son nom */
 .halo { cursor: pointer; }

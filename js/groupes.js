@@ -125,6 +125,7 @@ let groupesActuels = [];
 let unites = [];
 
 const groupesDePersonne = new Map(); // id de relation -> [groupes]
+const principalDe = new Map();       // id de relation -> id de son groupe principal (détection)
 const appartenanceAuto = new Map();  // id de relation -> Set(id de groupe), avant corrections
 
 // Les groupes d'une personne (liste, éventuellement vide).
@@ -261,6 +262,8 @@ function calculerGroupes() {
   //    groupes refusés).
   groupesActuels = [];
   groupesDePersonne.clear();
+  principalDe.clear();
+  for (const g of groupes) for (const id of g.principaux) principalDe.set(id, g.id);
   const nouveauxConnus = [];
   for (const g of groupes) {
     const membres = [...g.membresIds].map((id) => parId.get(id)).filter(Boolean);

@@ -61,6 +61,8 @@ supplémentaires sur les personnes) ou une des questions en suspens.
 ## Questions en suspens
 
 - Afficher la liste des liens d'une personne dans sa fiche ?
+- Quand deux bulles de groupe se recouvrent, leurs noms peuvent se
+  chevaucher.
 - Quand tous les groupes sont ouverts (onglet Groupes), leurs halos se
   chevauchent : à revoir avec une organisation plus claire de la carte
   (« arborescence » évoquée par l'utilisateur).
@@ -174,10 +176,16 @@ supplémentaires sur les personnes) ou une des questions en suspens.
   poids de ses liens. Corrections manuelles par personne et par groupe
   (`choixGroupes`), cases à cocher dans la fiche, « Rétablir les groupes
   automatiques ». Supprimer un groupe le garde comme « refusé » (pas
-  recréé, les membres gardent leurs autres groupes). Une personne membre de
-  plusieurs groupes repliés reste visible, reliée à leurs bulles par un
-  trait en pointillés. Format des données version 3 (les versions 1 et 2
-  sont converties).
+  recréé, les membres gardent leurs autres groupes). Format des données
+  version 3 (les versions 1 et 2 sont converties).
+- 2026-11-22 : affichage des groupes qui se chevauchent (remplace l'idée de
+  laisser les personnes communes visibles hors des bulles, jugée mauvaise).
+  Une personne commune est cachée tant que tous ses groupes sont repliés
+  (représentée par son groupe principal pour ses liens). Les bulles de
+  groupes avec des membres en commun se pénètrent (d'autant plus qu'elles
+  partagent), visent la même distance au centre et sont rangées ensemble.
+  À l'ouverture d'un groupe, ses membres partagés sont visibles et les
+  bulles de leurs autres groupes s'y superposent en transparence.
 - 2026-11-22 : lasso dans l'onglet Groupes : glisser sur le fond entoure
   plusieurs personnes ; elles sont toutes ajoutées au groupe choisi (ou
   toutes retirées si elles en faisaient déjà toutes partie), avec

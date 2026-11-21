@@ -266,15 +266,17 @@ let noeuds = [];                      // ce qui est affiché et animé
 let noeudsParId = new Map();
 let traitsVisibles = [];              // liens affichés (dont liens regroupés)
 let unitesVisibles = [];              // paquets pour la répartition
+let recouvrements = new Map();        // "idA|idB" -> part de membres partagés
+let liensInvisibles = [];             // attractions non dessinées (chevauchements, appartenances)
 
 // Le groupe replié qui cache une personne (ou null si elle est visible).
-// Une personne n'est cachée que si elle appartient à un seul groupe, et
-// qu'il est replié. Membre de plusieurs groupes, elle reste visible : elle
-// fait le pont entre eux.
+// Une personne est cachée quand tous ses groupes sont repliés ; elle est
+// alors représentée par la bulle de son groupe principal (pour regrouper ses
+// liens). Dès qu'un de ses groupes est ouvert, elle est visible.
 function groupeReplie(idRelation) {
   const groupes = groupesDe(idRelation);
-  if (groupes.length !== 1) return null;
-  return groupesOuverts.has(groupes[0].id) ? null : groupes[0];
+  if (!groupes.length || groupes.some((g) => groupesOuverts.has(g.id))) return null;
+  return groupes.find((g) => g.id === principalDe.get(idRelation)) || groupes[0];
 }
 
 // Ce qui représente une personne à l'écran : elle-même, ou la bulle de
@@ -333,6 +335,9 @@ function construireNoeuds() {
   for (const l of liens) {
     const a = noeudVisibleDe(l.de), b = noeudVisibleDe(l.vers);
     if (!a || !b || a === b) continue; // lien interne à un groupe replié
+    // lien entre un membre visible et la bulle de son propre groupe : interne aussi
+    const membreDe = (p, n) => !estGroupe(p) && estGroupe(n) && groupesDe(p.id).some((g) => g.id === n.id);
+    if (membreDe(a, b) || membreDe(b, a)) continue;
     if (!estGroupe(a) && !estGroupe(b)) {
       traitsVisibles.push({ id: l.id, de: a.id, vers: b.id, type: l.type, lien: l });
       continue;
@@ -344,20 +349,54 @@ function construireNoeuds() {
     t.nombre += 1;
     t.poids += poidsLien(l);
   }
-  // Une personne qui fait le pont entre plusieurs groupes est reliée à la
-  // bulle de chacun de ses groupes repliés (trait d'appartenance).
+  traitsVisibles.push(...regroupes.values());
+
+  // Groupes qui ont des membres en commun : leurs bulles ont le droit de se
+  // recouvrir (d'autant plus qu'ils partagent de membres), et s'attirent.
+  recouvrements = new Map();
+  liensInvisibles = [];
+  const replies = [...noeudsGroupes.values()];
+  for (let i = 0; i < replies.length; i++) {
+    for (let j = i + 1; j < replies.length; j++) {
+      const a = replies[i], b = replies[j];
+      const ids = new Set(a.groupe.membres.map((r) => r.id));
+      const partages = b.groupe.membres.filter((r) => ids.has(r.id)).length;
+      if (!partages) continue;
+      // dès une personne en commun, les bulles se recouvrent nettement ;
+      // d'autant plus qu'elles partagent de membres
+      const part = 0.35 + 0.5 * Math.min(1, partages / Math.min(a.groupe.membres.length, b.groupe.membres.length));
+      recouvrements.set(a.id + "|" + b.id, part);
+      recouvrements.set(b.id + "|" + a.id, part);
+      liensInvisibles.push({ source: a.id, target: b.id, chevauchement: part });
+    }
+  }
+
+  // Des groupes qui se recouvrent visent la même distance au centre (la
+  // moyenne des leurs), pour pouvoir se superposer.
+  const partenaires = new Map(replies.map((n) => [n.id, [n]]));
+  for (const l of liensInvisibles) {
+    partenaires.get(l.source).push(noeudsGroupes.get(l.target));
+    partenaires.get(l.target).push(noeudsGroupes.get(l.source));
+  }
+  const ciblesPropres = new Map(replies.map((n) => [n.id, n.distanceCible]));
+  for (const n of replies) n.distanceCible = d3.mean(partenaires.get(n.id), (m) => ciblesPropres.get(m.id));
+
+  // Entre deux groupes qui se recouvrent, pas de trait regroupé : leurs
+  // bulles se chevauchent déjà.
+  traitsVisibles = traitsVisibles.filter((t) => !(t.regroupe && recouvrements.has(t.de + "|" + t.vers)));
+
+  // Un groupe replié dont un membre est visible (parce qu'un autre de ses
+  // groupes est ouvert) s'affiche en transparence, superposé à ce membre.
+  for (const n of replies) n.fantome = false;
   for (const r of noeuds) {
-    if (estGroupe(r) || groupesDe(r.id).length < 2) continue;
+    if (estGroupe(r)) continue;
     for (const g of groupesDe(r.id)) {
       const n = noeudsGroupes.get(g.id);
       if (!n) continue;
-      const [p, q] = [r.id, n.id].sort();
-      const cle = "regroupe:" + p + "|" + q;
-      if (!regroupes.has(cle)) regroupes.set(cle, { id: cle, de: p, vers: q, regroupe: true, nombre: 0, poids: 0 });
-      regroupes.get(cle).appartenance = true;
+      n.fantome = true;
+      liensInvisibles.push({ source: r.id, target: n.id, appartenance: true });
     }
   }
-  traitsVisibles.push(...regroupes.values());
 
   // Les paquets pour la répartition autour du cercle (un groupe replié = sa
   // seule bulle, mais il garde le poids de tous ses membres).
@@ -365,6 +404,30 @@ function construireNoeuds() {
     noeuds: [...new Set(u.map((r) => noeudVisibleDe(r.id)))],
     poids: u.length,
   }));
+
+  // Pour la répartition autour du cercle, deux groupes qui se recouvrent
+  // forment un seul paquet (sinon on les écarterait l'un de l'autre).
+  const fusion = unitesVisibles.map((u, i) => i);
+  const chef = (i) => (fusion[i] === i ? i : (fusion[i] = chef(fusion[i])));
+  const uniteDuNoeud = new Map();
+  unitesVisibles.forEach((u, i) => u.noeuds.forEach((n) => {
+    if (uniteDuNoeud.has(n.id)) fusion[chef(i)] = chef(uniteDuNoeud.get(n.id));
+    else uniteDuNoeud.set(n.id, i);
+  }));
+  for (const l of liensInvisibles) {
+    if (l.chevauchement === undefined) continue;
+    const i = uniteDuNoeud.get(l.source), j = uniteDuNoeud.get(l.target);
+    if (i !== undefined && j !== undefined) fusion[chef(i)] = chef(j);
+  }
+  const fusionnees = new Map();
+  unitesVisibles.forEach((u, i) => {
+    const c = chef(i);
+    if (!fusionnees.has(c)) fusionnees.set(c, { noeuds: new Set(), poids: 0 });
+    u.noeuds.forEach((n) => fusionnees.get(c).noeuds.add(n));
+    fusionnees.get(c).poids += u.poids;
+  });
+  unitesVisibles = [...fusionnees.values()].map((u) => ({ noeuds: [...u.noeuds], poids: u.poids }));
+
 }
 
 // Recale les membres d'un groupe replié sur sa bulle (qui a pu bouger), en
@@ -440,6 +503,8 @@ let quandOnCliqueUnGroupe = () => {};
 function forceDisque() {
   for (const r of noeuds) {
     if (estGroupe(r)) {
+      // une bulle en transparence suit ses membres visibles (pas de disque)
+      if (r.fantome) continue;
       const distance = Math.hypot(r.x, r.y) || 1;
       const traction = ((distance - r.distanceCible) / distance) * 0.05;
       r.vx -= r.x * traction;
@@ -552,6 +617,34 @@ function forceGroupes(alpha) {
   });
 }
 
+// Écart autour des bulles de groupe. Une bulle de groupe repousse ce qui la
+// touche, sauf :
+// - ses propres membres visibles (ils peuvent être "dans" la bulle) ;
+// - une autre bulle de groupe avec des membres en commun : elles peuvent se
+//   recouvrir, d'autant plus qu'elles partagent de membres.
+function forceEcartGroupes() {
+  for (const g of noeuds) {
+    if (!estGroupe(g) || g.fantome) continue; // une bulle en transparence ne repousse rien
+    const rg = rayonBulle(g) + 10;
+    for (const n of noeuds) {
+      if (n === g || (estGroupe(n) && (n.id < g.id || n.fantome))) continue;
+      let min;
+      if (estGroupe(n)) {
+        min = (rg + rayonBulle(n) + 10) * (1 - (recouvrements.get(g.id + "|" + n.id) || 0));
+      } else {
+        if (groupesDe(n.id).some((x) => x.id === g.id)) continue;
+        min = rg + rayonAvecNom(n);
+      }
+      const dx = n.x - g.x, dy = n.y - g.y;
+      const d = Math.hypot(dx, dy) || 1;
+      if (d >= min) continue;
+      const k = ((min - d) / d) * 0.35;
+      n.vx += dx * k; n.vy += dy * k;
+      g.vx -= dx * k; g.vy -= dy * k;
+    }
+  }
+}
+
 // --- Ranger la carte ---------------------------------------------------------
 
 // Range la carte "en parts de gâteau" : chaque paquet reçoit une part du
@@ -562,9 +655,20 @@ function ranger() {
   const anciennes = relations.map((r) => ({ id: r.id, x: r.x, y: r.y }));
   if (!unites.length) return anciennes;
 
+  // Les groupes qui partagent des membres sont rangés ensemble, dans la
+  // même part (ils se recouvrent).
+  const paquets = [];
+  for (const u of unites) {
+    const ids = new Set(u.map((r) => r.id));
+    const voisins = paquets.filter((p) => p.some((r) => ids.has(r.id)));
+    const fusion = [...new Set(voisins.flat().concat(u))];
+    for (const v of voisins) paquets.splice(paquets.indexOf(v), 1);
+    paquets.push(fusion);
+  }
+
   // Poids des liens entre paquets
   const uniteDe = new Map();
-  unites.forEach((u, i) => u.forEach((r) => uniteDe.set(r.id, i)));
+  paquets.forEach((u, i) => u.forEach((r) => uniteDe.set(r.id, i)));
   const poidsEntre = (i, j) => d3.sum(liens, (l) => {
     const a = uniteDe.get(l.de), b = uniteDe.get(l.vers);
     return (a === i && b === j) || (a === j && b === i) ? poidsLien(l) : 0;
@@ -572,18 +676,18 @@ function ranger() {
 
   // Ordre autour du cercle : on part du plus grand paquet, puis on ajoute à
   // chaque fois celui qui est le plus lié au dernier placé.
-  const restants = d3.range(unites.length).sort((a, b) => unites[b].length - unites[a].length);
+  const restants = d3.range(paquets.length).sort((a, b) => paquets[b].length - paquets[a].length);
   const ordre = [restants.shift()];
   while (restants.length) {
     const dernier = ordre[ordre.length - 1];
     restants.sort((a, b) => poidsEntre(dernier, b) - poidsEntre(dernier, a) ||
       d3.sum(ordre, (o) => poidsEntre(o, b)) - d3.sum(ordre, (o) => poidsEntre(o, a)) ||
-      unites[b].length - unites[a].length);
+      paquets[b].length - paquets[a].length);
     ordre.push(restants.shift());
   }
 
   // Placement dans les parts
-  const total = d3.sum(unites, (u) => u.length);
+  const total = d3.sum(paquets, (u) => u.length);
   let angle = -Math.PI / 2; // on commence en haut
   // Dans chaque disque, les bulles successives alternent entre trois
   // "rangées" (en quinconce) pour ne pas se toucher.
@@ -591,9 +695,9 @@ function ranger() {
   const compteurParDisque = CERCLES.map(() => 0);
   const dejaPlacees = new Set(); // membre de plusieurs groupes : placé une seule fois
   for (const i of ordre) {
-    const part = (2 * Math.PI * unites[i].length) / total;
+    const part = (2 * Math.PI * paquets[i].length) / total;
     for (const c of CERCLES) {
-      const membres = unites[i].filter((r) => r.cercle === c.niveau && !dejaPlacees.has(r.id))
+      const membres = paquets[i].filter((r) => r.cercle === c.niveau && !dejaPlacees.has(r.id))
         .sort((a, b) => a.nom.localeCompare(b.nom));
       const { min, max } = limitesDuDisque(c.niveau);
       const haut = Number.isFinite(max) ? max : min + LARGEUR_DISQUE[c.niveau - 1] * 0.6;
@@ -644,8 +748,15 @@ function annulerRangement(anciennes) {
 // Un trait regroupé (vers un groupe replié) attire doucement.
 const forceLiens = d3.forceLink()
   .id((r) => r.id)
-  .distance((l) => (l.regroupe ? rayonBulle(l.source) + rayonBulle(l.target) + (l.appartenance ? 40 : 70) : typeDeLien(l.type).distance))
-  .strength((l) => (l.appartenance ? 0.25 : l.regroupe ? 0.08 : typeDeLien(l.type).attraction));
+  .distance((l) => {
+    if (l.appartenance) return rayonBulle(l.target) * 0.3; // le groupe vient sur son membre
+    if (l.chevauchement !== undefined) {
+      return (rayonBulle(l.source) + rayonBulle(l.target) + 10) * (1 - l.chevauchement);
+    }
+    return l.regroupe ? rayonBulle(l.source) + rayonBulle(l.target) + 70 : typeDeLien(l.type).distance;
+  })
+  .strength((l) => (l.appartenance ? 0.5 : l.chevauchement !== undefined ? 0.6
+    : l.regroupe ? 0.08 : typeDeLien(l.type).attraction));
 
 // Quatre règles : chaque bulle reste dans son disque (la plus forte),
 // les bulles reliées se rapprochent, les groupes s'écartent les uns des
@@ -657,7 +768,8 @@ const simulation = d3.forceSimulation()
   .force("disque", forceDisque)
   .force("liens", forceLiens)
   .force("groupes", forceGroupes)
-  .force("ecart", d3.forceCollide(rayonAvecNom))
+  .force("ecart", d3.forceCollide((n) => (estGroupe(n) ? 0 : rayonAvecNom(n))))
+  .force("ecartGroupes", forceEcartGroupes)
   .on("tick", mettreAJourPositions)
   .on("end", enregistrer); // les bulles se sont arrêtées : on garde leur place
 
@@ -906,11 +1018,11 @@ function dessinerCarte() {
     });
 
   traits.classed("lien-regroupe", (l) => Boolean(l.regroupe));
-  traits.classed("lien-appartenance", (l) => Boolean(l.appartenance));
+
   traits.select(".lien-trait")
     .attr("stroke", (l) => (l.regroupe ? "#6c6f7f" : typeDeLien(l.type).couleur))
     .attr("stroke-width", (l) => (l.regroupe ? 1.5 + Math.log2(Math.max(l.nombre, 1)) : typeDeLien(l.type).epaisseur))
-    .attr("stroke-dasharray", (l) => (l.appartenance ? "5 4" : l.regroupe ? null : typeDeLien(l.type).pointilles));
+    .attr("stroke-dasharray", (l) => (l.regroupe ? null : typeDeLien(l.type).pointilles));
 
   // Les bulles : personnes visibles et groupes repliés
   bulles = calqueBulles
@@ -935,6 +1047,7 @@ function dessinerCarte() {
   // Couleur et nom (qui peuvent avoir changé) ; les tailles dépendent aussi
   // du zoom, elles sont réglées par ajusterAuZoom().
   bulles.classed("bulle-groupe", estGroupe);
+  bulles.classed("fantome", (r) => estGroupe(r) && r.fantome);
   bulles.select(".disque")
     .attr("fill", (r) => (estGroupe(r) ? "#ffffff" : couleurDuCercle(r.cercle)))
     .style("stroke", (r) => (estGroupe(r) ? couleurDuCercle(r.cercle) : null));
@@ -969,8 +1082,11 @@ function dessinerCarte() {
   // sans les liens "se détestent" qui n'attirent pas.
   forceLiens.links(
     traitsVisibles
-      .filter((l) => (l.regroupe ? l.poids > 0 || l.appartenance : typeDeLien(l.type).attraction > 0))
-      .map((l) => ({ source: l.de, target: l.vers, type: l.type, regroupe: l.regroupe, appartenance: l.appartenance }))
+      .filter((l) => (l.regroupe ? l.poids > 0 : typeDeLien(l.type).attraction > 0))
+      // une bulle en transparence n'est tirée que vers ses membres visibles
+      .filter((l) => !(l.regroupe && [l.de, l.vers].some((id) => (noeudsParId.get(id) || {}).fantome)))
+      .map((l) => ({ source: l.de, target: l.vers, type: l.type, regroupe: l.regroupe }))
+      .concat(liensInvisibles.map((l) => ({ ...l, regroupe: true })))
   );
   relancerAnimation(0.5);
 
