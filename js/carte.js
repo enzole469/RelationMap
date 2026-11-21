@@ -3,6 +3,9 @@
 // Réglages de taille, par niveau (Intime, Proche, Ami, Connaissance).
 // Les disques s'élargissent vers l'extérieur, où il y a le plus de monde,
 // et les bulles rapetissent avec l'éloignement.
+// Le dernier disque (Connaissance) n'a pas de bord extérieur : ses bulles
+// peuvent s'éloigner autant qu'on veut. Sa largeur sert seulement à placer
+// les nouvelles connaissances et à cadrer la vue de départ.
 const LARGEUR_DISQUE = [140, 170, 200, 230]; // largeur de chaque disque
 const TAILLE_BULLE   = [22, 18, 15, 12];     // rayon des bulles de ce niveau
 const TAILLE_TEXTE   = [13, 12, 11, 11];     // taille minimale du nom à l'écran
@@ -14,14 +17,17 @@ const rayonDuCercle = (niveau) => d3.sum(LARGEUR_DISQUE.slice(0, niveau));
 const couleurDuCercle = (niveau) => CERCLES.find((c) => c.niveau === niveau).couleur;
 const rayonBulle = (r) => TAILLE_BULLE[r.cercle - 1];
 
+const estLeDernierNiveau = (niveau) => niveau === CERCLES.length;
+
 // Distance au centre minimale et maximale pour le centre d'une bulle
 // d'un niveau donné, pour qu'elle reste entièrement dans son disque.
+// Pour le dernier niveau, pas de maximum (Infinity).
 function limitesDuDisque(niveau) {
   const interieur = niveau === 1 ? RAYON_MOI + MARGE : rayonDuCercle(niveau - 1);
   const rayon = TAILLE_BULLE[niveau - 1];
   return {
     min: interieur + rayon + MARGE,
-    max: rayonDuCercle(niveau) - rayon - MARGE,
+    max: estLeDernierNiveau(niveau) ? Infinity : rayonDuCercle(niveau) - rayon - MARGE,
   };
 }
 
@@ -59,7 +65,7 @@ const monde = svg.append("g");
 
 svg.call(
   d3.zoom()
-    .scaleExtent([0.4, 4]) // zoom minimum et maximum
+    .scaleExtent([0.15, 4]) // zoom minimum (pour voir les connaissances lointaines) et maximum
     .on("zoom", (evenement) => {
       monde.attr("transform", evenement.transform);
       ajusterTailleDesNoms();
@@ -69,11 +75,32 @@ svg.call(
 // --- Les disques de proximité ---------------------------------------------
 
 // Chaque niveau est un anneau coloré, entre le cercle précédent et le sien.
+// Le dernier, sans bord extérieur, s'efface en dégradé vers l'extérieur.
+const ETENDUE_DEGRADE = 900; // distance sur laquelle le dernier anneau s'efface
+const bordInterieur = (niveau) => (niveau === 1 ? 0 : rayonDuCercle(niveau - 1));
+const bordExterieurDessine = (niveau) =>
+  estLeDernierNiveau(niveau) ? bordInterieur(niveau) + ETENDUE_DEGRADE : rayonDuCercle(niveau);
+
 const formeAnneau = d3.arc()
-  .innerRadius((c) => (c.niveau === 1 ? 0 : rayonDuCercle(c.niveau - 1)))
-  .outerRadius((c) => rayonDuCercle(c.niveau))
+  .innerRadius((c) => bordInterieur(c.niveau))
+  .outerRadius((c) => bordExterieurDessine(c.niveau))
   .startAngle(0)
   .endAngle(2 * Math.PI);
+
+// Le dégradé : pleine couleur au bord intérieur, transparent au loin.
+const dernier = CERCLES[CERCLES.length - 1];
+const degrade = svg.append("defs").append("radialGradient")
+  .attr("id", "degrade-dernier-anneau")
+  .attr("gradientUnits", "userSpaceOnUse")
+  .attr("cx", 0).attr("cy", 0)
+  .attr("r", bordExterieurDessine(dernier.niveau));
+degrade.append("stop")
+  .attr("offset", bordInterieur(dernier.niveau) / bordExterieurDessine(dernier.niveau))
+  .attr("stop-color", dernier.couleur);
+degrade.append("stop")
+  .attr("offset", 1)
+  .attr("stop-color", dernier.couleur)
+  .attr("stop-opacity", 0);
 
 const anneaux = monde.append("g")
   .selectAll("path")
@@ -81,8 +108,8 @@ const anneaux = monde.append("g")
   .join("path")
   .attr("class", "anneau")
   .attr("d", formeAnneau)
-  .attr("fill", (c) => c.couleur)
-  .attr("stroke", (c) => c.couleur);
+  .attr("fill", (c) => (estLeDernierNiveau(c.niveau) ? "url(#degrade-dernier-anneau)" : c.couleur))
+  .attr("stroke", (c) => (estLeDernierNiveau(c.niveau) ? "none" : c.couleur));
 
 // Fait ressortir l'anneau d'un niveau (null = aucun).
 function mettreEnAvantAnneau(niveau) {
@@ -244,7 +271,7 @@ const simulation = d3.forceSimulation()
   .force("disque", forceDisque)
   .force("liens", forceLiens)
   .force("groupes", forceGroupes)
-  .force("ecart", d3.forceCollide((r) => rayonBulle(r) + 12))
+  .force("ecart", d3.forceCollide(rayonAvecNom))
   .on("tick", mettreAJourPositions)
   .on("end", sauvegarder); // les bulles se sont arrêtées : on garde leur place
 
@@ -305,11 +332,13 @@ const glisser = d3.drag()
 
 // --- Mise à jour de la carte ----------------------------------------------
 
-// Une nouvelle bulle apparaît à un endroit au hasard dans son disque.
+// Une nouvelle bulle apparaît à un endroit au hasard dans son disque
+// (pour le dernier niveau, sans bord : près de son bord intérieur).
 function placerDansSonDisque(r) {
   const { min, max } = limitesDuDisque(r.cercle);
+  const maxPlacement = Number.isFinite(max) ? max : min + LARGEUR_DISQUE[r.cercle - 1] / 2;
   const angle = Math.random() * 2 * Math.PI;
-  const distance = min + Math.random() * (max - min);
+  const distance = min + Math.random() * (maxPlacement - min);
   r.x = Math.cos(angle) * distance;
   r.y = Math.sin(angle) * distance;
 }
@@ -401,17 +430,38 @@ function dessinerCarte() {
 // Les noms gardent une taille lisible à l'écran : quand la carte est réduite
 // pour tenir dans la fenêtre (ou dézoomée), ils ne rapetissent pas avec
 // elle ; quand on zoome, ils grossissent normalement.
-function ajusterTailleDesNoms() {
-  const matrice = monde.node().getScreenCTM();
+// Facteur d'agrandissement des noms pour compenser la réduction de la carte.
+// avecZoom = false : ne tient compte que de la taille de la fenêtre.
+function compensationDesNoms(avecZoom) {
+  const matrice = (avecZoom ? monde : svg).node().getScreenCTM();
   const echelle = matrice ? matrice.a : 1; // pixels à l'écran par unité de carte
-  const compensation = echelle < 1 ? 1 / echelle : 1;
+  return echelle < 1 ? 1 / echelle : 1;
+}
+
+function ajusterTailleDesNoms() {
+  const compensation = compensationDesNoms(true);
   bulles.select("text")
     .style("font-size", (r) => TAILLE_TEXTE[r.cercle - 1] * compensation + "px")
     .attr("y", (r) => rayonBulle(r) + TAILLE_TEXTE[r.cercle - 1] * compensation + 2);
   moi.select("text").style("font-size", 13 * compensation + "px");
 }
 
-window.addEventListener("resize", ajusterTailleDesNoms);
+// Place réservée autour d'une bulle pour elle ET son nom (écrit dessous),
+// afin que les bulles voisines ne viennent pas recouvrir le nom.
+// La largeur du nom est estimée d'après son nombre de lettres.
+function rayonAvecNom(r) {
+  const hauteurNom = TAILLE_TEXTE[r.cercle - 1] * compensationDesNoms(false);
+  const largeurNom = r.nom.length * hauteurNom * 0.55;
+  return Math.max(rayonBulle(r) + hauteurNom * 0.65 + 2, largeurNom / 2 + 3);
+}
+
+// Quand la fenêtre change de taille, les noms changent de taille aussi :
+// on recalcule la place réservée autour de chaque bulle.
+window.addEventListener("resize", () => {
+  ajusterTailleDesNoms();
+  simulation.force("ecart").radius(rayonAvecNom);
+  simulation.alpha(Math.max(simulation.alpha(), 0.1)).restart();
+});
 
 // Met en évidence des bulles et/ou un lien (listes vides / null = rien).
 function selectionner(idsBulles = [], idLien = null) {
@@ -420,9 +470,34 @@ function selectionner(idsBulles = [], idLien = null) {
   afficherSelection();
 }
 
+// Mode focus : quand une personne est sélectionnée, elle, ses liens et les
+// personnes reliées restent nets, tout le reste s'estompe. Quand deux
+// personnes sont sélectionnées (panneau d'un lien), seules elles et le lien
+// entre elles restent nets.
 function afficherSelection() {
   bulles.classed("selectionnee", (r) => bullesSelectionnees.includes(r.id));
   traits.classed("selectionne", (l) => l.id === lienSelectionne);
+
+  const focus = bullesSelectionnees.length > 0;
+  const selection = new Set(bullesSelectionnees);
+  const unePersonne = bullesSelectionnees.length === 1;
+
+  // Liens qui restent nets
+  const lienNet = (l) => unePersonne
+    ? selection.has(l.de) || selection.has(l.vers)
+    : selection.has(l.de) && selection.has(l.vers);
+
+  // Personnes qui restent nettes : la sélection et, pour une seule
+  // personne, celles qui lui sont reliées.
+  const nettes = new Set(selection);
+  if (unePersonne) {
+    for (const l of liens) {
+      if (lienNet(l)) { nettes.add(l.de); nettes.add(l.vers); }
+    }
+  }
+
+  bulles.classed("estompee", (r) => focus && !nettes.has(r.id));
+  traits.classed("estompe", (l) => focus && !lienNet(l));
 }
 
 // Quand on quitte la page ou qu'on change d'application (sur téléphone),

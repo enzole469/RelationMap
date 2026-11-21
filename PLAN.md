@@ -61,6 +61,8 @@ téléphone, puis mise en ligne (avec accord) et test sur Android.
   disque ? (aujourd'hui elle revient dans le sien ; on change le niveau dans
   sa fiche)
 - Afficher la liste des liens d'une personne dans sa fiche ?
+- Autres idées de lisibilité proposées, pas encore faites : recherche d'un
+  nom, bouton « Recentrer », filtres par type de lien.
 - À l'étape 5 : les données saisies en local (`index.html` ouvert par
   double-clic) ne seront pas visibles sur la version en ligne. Il faudra
   exporter puis importer une fois lors du passage à la version en ligne.
@@ -104,3 +106,10 @@ téléphone, puis mise en ligne (avec accord) et test sur Android.
   (22/18/15/12), noms gardant une taille minimale lisible à l'écran quel que
   soit le zoom. Réglages `LARGEUR_DISQUE`, `TAILLE_BULLE`, `TAILLE_TEXTE`
   dans `js/carte.js`.
+- 2026-11-21 : le disque « Connaissance » n'a plus de bord extérieur : les
+  connaissances peuvent s'éloigner autant qu'on veut (anneau en dégradé qui
+  s'efface). Les nouvelles apparaissent près du bord intérieur.
+- 2026-11-21 : mode focus (une personne sélectionnée : elle, ses liens et
+  ses relations restent nets, le reste s'estompe ; panneau d'un lien : les
+  deux personnes et leur lien). Place réservée autour de chaque bulle pour
+  son nom (fonction `rayonAvecNom`), pour éviter les chevauchements.

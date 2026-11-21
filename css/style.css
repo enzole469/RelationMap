@@ -150,6 +150,12 @@ h1 {
 
 .lien.selectionne .lien-zone { stroke: rgba(43, 45, 66, 0.12); }
 
+/* Mode focus : ce qui ne concerne pas la sélection s'estompe */
+.bulle,
+.lien { transition: opacity 0.25s; }
+.bulle.estompee { opacity: 0.15; }
+.lien.estompe { opacity: 0.08; }
+
 /* La bulle dont la fiche est ouverte */
 .bulle.selectionnee circle {
   stroke: var(--texte);
