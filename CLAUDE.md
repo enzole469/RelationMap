@@ -71,7 +71,8 @@ concentriques selon leur degré de proximité avec moi (au centre).
 - `js/donnees.js` : cercles, types de liens, listes des relations et des
   liens, actions qui les modifient, sauvegarde automatique, export / import.
 - `js/groupes.js` : détection automatique des groupes (méthode de Louvain,
-  liens pondérés par type), noms et placements manuels des groupes.
+  liens pondérés par type), groupes qui se chevauchent, noms, corrections
+  manuelles, groupes créés / supprimés par l'utilisateur.
 - `js/carte.js` : le dessin de la carte interactive et sa physique
   (`dessinerCarte()` la remet à jour et sauvegarde après chaque changement).
 - `js/interface.js` : le panneau latéral (vues relation, lien et sauvegarde),

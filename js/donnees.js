@@ -95,7 +95,7 @@ function supprimerLien(id) {
 // Rien n'est envoyé sur Internet.
 const CLE_DONNEES = "relationmap-donnees";
 const CLE_DERNIER_EXPORT = "relationmap-dernier-export";
-const VERSION_FORMAT = 2; // 2 : ajout des groupes
+const VERSION_FORMAT = 3; // 2 : ajout des groupes ; 3 : groupes qui se chevauchent
 
 // État de la sauvegarde automatique, affiché dans le panneau "Sauvegarde".
 const etatSauvegarde = { fonctionne: true, derniereFois: null, donneesAbimees: false };
@@ -111,12 +111,14 @@ function donneesASauvegarder() {
       id: r.id,
       nom: r.nom,
       cercle: r.cercle,
-      groupe: r.groupe,
+      choixGroupes: r.choixGroupes,
+      horsGroupesAuto: r.horsGroupesAuto || undefined,
       x: r.x === undefined ? undefined : Math.round(r.x),
       y: r.y === undefined ? undefined : Math.round(r.y),
     })),
     liens: liens.map((l) => ({ id: l.id, de: l.de, vers: l.vers, type: l.type })),
-    groupes: groupesConnus.map((g) => ({ id: g.id, nom: g.nom, nomChoisi: g.nomChoisi, membres: g.membres })),
+    groupes: groupesConnus.map((g) => ({ id: g.id, nom: g.nom, nomChoisi: g.nomChoisi,
+      supprime: g.supprime || undefined, membres: g.membres })),
   };
 }
 
@@ -156,8 +158,20 @@ function verifierDonnees(donnees) {
     }
     ids.add(r.id);
     const propre = { id: r.id, nom, cercle: r.cercle };
-    // groupe choisi à la main : identifiant de groupe, ou "aucun"
-    if (typeof r.groupe === "string" && r.groupe.length <= 40) propre.groupe = r.groupe;
+    // corrections manuelles des groupes : { idGroupe: true | false }
+    if (r.choixGroupes && typeof r.choixGroupes === "object" && !Array.isArray(r.choixGroupes)) {
+      const choix = {};
+      for (const [id, valeur] of Object.entries(r.choixGroupes)) {
+        if (id.length <= 40 && typeof valeur === "boolean") choix[id] = valeur;
+      }
+      if (Object.keys(choix).length) propre.choixGroupes = choix;
+    }
+    if (r.horsGroupesAuto === true) propre.horsGroupesAuto = true;
+    // ancien format (version 2) : un seul groupe choisi à la main, ou "aucun"
+    if (typeof r.groupe === "string" && r.groupe.length <= 40) {
+      propre.horsGroupesAuto = true;
+      if (r.groupe !== "aucun") propre.choixGroupes = { [r.groupe]: true };
+    }
     if (Number.isFinite(r.x) && Number.isFinite(r.y)) {
       propre.x = r.x;
       propre.y = r.y;
@@ -180,8 +194,10 @@ function verifierDonnees(donnees) {
     if (typeof g.id !== "string" || nom === "" || nom.length > LONGUEUR_MAX_NOM || !Array.isArray(g.membres)) {
       throw new Error(`Le groupe n°${i + 1} du fichier est invalide.`);
     }
-    return { id: g.id, nom, nomChoisi: g.nomChoisi === true,
-             membres: g.membres.filter((m) => typeof m === "string" && ids.has(m)) };
+    const propre = { id: g.id, nom, nomChoisi: g.nomChoisi === true,
+                     membres: g.membres.filter((m) => typeof m === "string" && ids.has(m)) };
+    if (g.supprime === true) propre.supprime = true;
+    return propre;
   });
 
   return { relations: relationsPropres, liens: liensPropres, groupes: groupesPropres };

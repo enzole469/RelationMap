@@ -167,3 +167,14 @@ supplémentaires sur les personnes) ou une des questions en suspens.
 - 2026-11-22 : stabilité. La poussée de répartition est partagée entre les
   bulles d'un paquet et la rotation d'ensemble est annulée (la carte ne
   tourne plus comme un manège) ; animation raccourcie (~20 s).
+- 2026-11-22 : les groupes peuvent se chevaucher (une personne dans
+  plusieurs groupes ; remplace l'idée de sous-groupes). Détection : un
+  groupe principal (Louvain), plus les autres groupes dont la personne
+  connaît au moins 30 % des membres et vers lesquels va au moins 30 % du
+  poids de ses liens. Corrections manuelles par personne et par groupe
+  (`choixGroupes`), cases à cocher dans la fiche, « Rétablir les groupes
+  automatiques ». Supprimer un groupe le garde comme « refusé » (pas
+  recréé, les membres gardent leurs autres groupes). Une personne membre de
+  plusieurs groupes repliés reste visible, reliée à leurs bulles par un
+  trait en pointillés. Format des données version 3 (les versions 1 et 2
+  sont converties).

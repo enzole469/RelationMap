@@ -10,8 +10,9 @@
 // rapproche pas. Le calcul donne toujours le même résultat pour les mêmes
 // données : les groupes ne changent pas tout seuls d'une ouverture à l'autre.
 //
-// L'utilisateur peut nommer un groupe et forcer une personne dans un groupe
-// (ou hors de tout groupe) : ces choix sont gardés dans les données.
+// Les groupes peuvent se chevaucher (une personne dans plusieurs groupes).
+// L'utilisateur peut nommer, créer, supprimer un groupe, et corriger les
+// appartenances : ces choix sont gardés dans les données.
 
 const POIDS_GROUPE = { couple: 3, ami: 2, connaissance: 1, conflit: 0 };
 const TAILLE_MIN_GROUPE = 3; // en dessous, pas de grosse bulle de groupe...
@@ -97,16 +98,37 @@ function detecterCommunautes(noeuds, aretes) {
 }
 
 // --- Les groupes de RelationMap ---------------------------------------------
-
+//
+// Les groupes peuvent se chevaucher : une personne peut appartenir à
+// plusieurs groupes.
+// - La détection ci-dessus donne à chacun un groupe "principal".
+// - Une personne entre aussi dans un autre groupe si une bonne part de ses
+//   liens y mène (APPARTENANCE_SECONDAIRE).
+// - L'utilisateur peut corriger, personne par personne et groupe par groupe :
+//   relation.choixGroupes = { idGroupe: true (ajoutée) | false (retirée) }.
+// - Un groupe supprimé par l'utilisateur est gardé comme "refusé" (supprime:
+//   true) : la détection ne le recrée pas.
+//
 // Résultat du dernier calcul :
-// - groupesActuels : les groupes d'au moins TAILLE_MIN_GROUPE personnes,
-//   [{ id, nom, nomChoisi, membres: [relations] }]
-// - unites : TOUS les paquets (groupes, paires, personnes seules), utilisés
-//   pour répartir la carte : [[relations]]
+// - groupesActuels : les groupes affichés, [{ id, nom, nomChoisi, membres: [relations] }]
+// - unites : les paquets pour répartir la carte (groupes, paires, personnes
+//   seules) : [[relations]]
+
+// Une personne entre aussi dans un autre groupe si :
+// - elle connaît au moins 30 % de ses membres (couverture),
+// - au moins 30 % du poids de ses liens y mène (part),
+// - et au moins l'équivalent d'un lien "amis" (poidsMin).
+// Connaître une ou deux personnes d'un grand groupe ne suffit donc pas.
+const APPARTENANCE_SECONDAIRE = { couverture: 0.3, part: 0.3, poidsMin: 2 };
+
 let groupesActuels = [];
 let unites = [];
 
-const groupeDePersonne = new Map(); // id de relation -> groupe (ou absent)
+const groupesDePersonne = new Map(); // id de relation -> [groupes]
+const appartenanceAuto = new Map();  // id de relation -> Set(id de groupe), avant corrections
+
+// Les groupes d'une personne (liste, éventuellement vide).
+const groupesDe = (idRelation) => groupesDePersonne.get(idRelation) || [];
 
 function poidsLien(l) {
   return POIDS_GROUPE[l.type] || 0;
@@ -132,77 +154,141 @@ function nomAutomatique(prenom) {
   return /^[aeiouyhàâäéèêëîïôöûüœ]/i.test(prenom) ? "Groupe d'" + prenom : "Groupe de " + prenom;
 }
 
+// Choix manuel d'une personne pour un groupe : true, false ou undefined.
+const choixPour = (r, idGroupe) => (r.choixGroupes ? r.choixGroupes[idGroupe] : undefined);
+
 function calculerGroupes() {
-  // 1. Détection automatique, sans les personnes placées à la main.
-  const placees = relations.filter((r) => r.groupe);
-  const libres = relations.filter((r) => !r.groupe);
-  const idsLibres = libres.map((r) => r.id).sort();
+  const parId = new Map(relations.map((r) => [r.id, r]));
+
+  // 1. Détection : un groupe principal par personne (sauf celles que
+  //    l'utilisateur a sorties du calcul automatique).
+  const idsAuto = relations.filter((r) => !r.horsGroupesAuto).map((r) => r.id).sort();
   const aretes = liens.map((l) => ({ a: l.de, b: l.vers, poids: poidsLien(l) }));
-  const communautes = detecterCommunautes(idsLibres, aretes);
+  const communautes = detecterCommunautes(idsAuto, aretes);
 
   // 2. Chaque paquet assez grand devient un groupe : il reprend l'identité
-  //    (et le nom) du groupe connu qui lui ressemble le plus.
+  //    (nom, ou refus) du groupe connu qui lui ressemble le plus.
   const disponibles = groupesConnus.slice();
-  const trouves = [];
+  const trouves = []; // { connu, ids }
   const parTaille = communautes.slice().sort((a, b) => b.length - a.length || a[0].localeCompare(b[0]));
+  const refuses = [];
   for (const ids of parTaille) {
-    // les personnes placées à la main dans un groupe comptent pour le reconnaître
-    const idsAvecPlacees = (g) => ids.concat(placees.filter((r) => r.groupe === g.id).map((r) => r.id));
     let meilleur = null, meilleureRessemblance = 0.34;
     for (const g of disponibles) {
-      const r = ressemblance(idsAvecPlacees(g), g.membres);
+      // les personnes ajoutées à la main comptent pour le reconnaître
+      const ajoutees = relations.filter((r) => choixPour(r, g.id) === true).map((r) => r.id);
+      const r = ressemblance([...new Set(ids.concat(ajoutees))], g.membres);
       if (r > meilleureRessemblance) { meilleur = g; meilleureRessemblance = r; }
     }
-    const total = ids.length + (meilleur ? placees.filter((r) => r.groupe === meilleur.id).length : 0);
-    if (total < TAILLE_MIN_GROUPE && !(meilleur && meilleur.nomChoisi)) continue;
+    if (meilleur && meilleur.supprime) {
+      // groupe refusé par l'utilisateur : on ne l'affiche pas, mais on suit
+      // son évolution pour continuer à le reconnaître
+      disponibles.splice(disponibles.indexOf(meilleur), 1);
+      refuses.push({ ...meilleur, membres: ids });
+      continue;
+    }
+    if (ids.length < TAILLE_MIN_GROUPE && !(meilleur && meilleur.nomChoisi)) continue;
     if (meilleur) disponibles.splice(disponibles.indexOf(meilleur), 1);
     trouves.push({ connu: meilleur, ids });
   }
-
-  // 3. On construit la liste des groupes (en gardant les groupes nommés par
-  //    l'utilisateur même s'ils sont vides, pour qu'ils puissent revenir).
-  const parId = new Map(relations.map((r) => [r.id, r]));
-  const nouveauxConnus = [];
-  groupesActuels = [];
-  groupeDePersonne.clear();
-  for (const { connu, ids } of trouves) {
-    const id = connu ? connu.id : nouvelIdentifiant("g");
-    const membres = ids.map((i) => parId.get(i))
-      .concat(placees.filter((r) => r.groupe === id));
-    if (membres.length < tailleMin(connu)) {
-      // trop petit pour être affiché, mais on garde son nom
-      if (connu) nouveauxConnus.push({ ...connu, membres: membres.map((r) => r.id) });
-      continue;
-    }
-    const nomChoisi = Boolean(connu && connu.nomChoisi);
-    const nom = nomChoisi ? connu.nom : nomAutomatique(personneCentrale(membres).nom);
-    const groupe = { id, nom, nomChoisi, membres };
-    groupesActuels.push(groupe);
-    nouveauxConnus.push({ id, nom, nomChoisi, membres: membres.map((r) => r.id) });
-    for (const r of membres) groupeDePersonne.set(r.id, groupe);
-  }
-  // groupes nommés par l'utilisateur qui n'ont pas été retrouvés
+  // les groupes créés ou nommés par l'utilisateur, pas retrouvés par la détection
   for (const g of disponibles) {
-    if (!g.nomChoisi) continue;
-    const membres = placees.filter((r) => r.groupe === g.id);
-    if (membres.length >= TAILLE_MIN_GROUPE_NOMME) {
-      const groupe = { id: g.id, nom: g.nom, nomChoisi: true, membres };
-      groupesActuels.push(groupe);
-      for (const r of membres) groupeDePersonne.set(r.id, groupe);
-    }
-    nouveauxConnus.push({ ...g, membres: membres.map((r) => r.id) });
+    if (g.supprime) refuses.push(g);
+    else if (g.nomChoisi) trouves.push({ connu: g, ids: [] });
   }
+
+  // 3. Membres : principaux, puis secondaires (une bonne part des liens va
+  //    vers le groupe), puis corrections de l'utilisateur.
+  const groupes = trouves.map(({ connu, ids }) => ({
+    id: connu ? connu.id : nouvelIdentifiant("g"),
+    nomChoisi: Boolean(connu && connu.nomChoisi),
+    nomConnu: connu ? connu.nom : null,
+    principaux: new Set(ids),
+    membresIds: new Set(ids),
+  }));
+  const poidsTotal = new Map();
+  for (const l of liens) {
+    const p = poidsLien(l);
+    poidsTotal.set(l.de, (poidsTotal.get(l.de) || 0) + p);
+    poidsTotal.set(l.vers, (poidsTotal.get(l.vers) || 0) + p);
+  }
+  for (const g of groupes) {
+    if (g.principaux.size < TAILLE_MIN_GROUPE) continue; // seulement vers les vrais groupes
+    const versGroupe = new Map(); // personne extérieure -> poids de ses liens vers le groupe
+    const connus = new Map();     // personne extérieure -> membres du groupe qu'elle connaît
+    const noter = (exterieur, membre, p) => {
+      versGroupe.set(exterieur, (versGroupe.get(exterieur) || 0) + p);
+      if (p > 0) {
+        if (!connus.has(exterieur)) connus.set(exterieur, new Set());
+        connus.get(exterieur).add(membre);
+      }
+    };
+    for (const l of liens) {
+      const p = poidsLien(l);
+      if (g.principaux.has(l.de) && !g.principaux.has(l.vers)) noter(l.vers, l.de, p);
+      if (g.principaux.has(l.vers) && !g.principaux.has(l.de)) noter(l.de, l.vers, p);
+    }
+    for (const [id, w] of versGroupe) {
+      const r = parId.get(id);
+      if (!r || r.horsGroupesAuto) continue;
+      const couverture = (connus.get(id) || new Set()).size / g.principaux.size;
+      if (w >= APPARTENANCE_SECONDAIRE.poidsMin &&
+          w >= APPARTENANCE_SECONDAIRE.part * poidsTotal.get(id) &&
+          couverture >= APPARTENANCE_SECONDAIRE.couverture) {
+        g.membresIds.add(id);
+      }
+    }
+  }
+  appartenanceAuto.clear();
+  for (const g of groupes) {
+    for (const id of g.membresIds) {
+      if (!appartenanceAuto.has(id)) appartenanceAuto.set(id, new Set());
+      appartenanceAuto.get(id).add(g.id);
+    }
+  }
+  const parIdGroupe = new Map(groupes.map((g) => [g.id, g]));
+  for (const r of relations) {
+    for (const [idGroupe, valeur] of Object.entries(r.choixGroupes || {})) {
+      const g = parIdGroupe.get(idGroupe);
+      if (!g) continue; // groupe disparu ou refusé : choix ignoré
+      if (valeur) g.membresIds.add(r.id);
+      else g.membresIds.delete(r.id);
+    }
+  }
+
+  // 4. Les groupes affichés (assez de membres), et la liste des groupes
+  //    connus à enregistrer (y compris les groupes nommés trop petits et les
+  //    groupes refusés).
+  groupesActuels = [];
+  groupesDePersonne.clear();
+  const nouveauxConnus = [];
+  for (const g of groupes) {
+    const membres = [...g.membresIds].map((id) => parId.get(id)).filter(Boolean);
+    const affichable = membres.length >= (g.nomChoisi ? TAILLE_MIN_GROUPE_NOMME : TAILLE_MIN_GROUPE);
+    const nom = g.nomChoisi ? g.nomConnu
+      : membres.length ? nomAutomatique(personneCentrale(membres).nom) : g.nomConnu || "Groupe";
+    nouveauxConnus.push({ id: g.id, nom, nomChoisi: g.nomChoisi, membres: membres.map((r) => r.id) });
+    if (!affichable) continue;
+    const groupe = { id: g.id, nom, nomChoisi: g.nomChoisi, membres };
+    groupesActuels.push(groupe);
+    for (const r of membres) {
+      if (!groupesDePersonne.has(r.id)) groupesDePersonne.set(r.id, []);
+      groupesDePersonne.get(r.id).push(groupe);
+    }
+  }
+  for (const g of refuses) nouveauxConnus.push({ id: g.id, nom: g.nom, nomChoisi: g.nomChoisi, supprime: true, membres: g.membres });
   groupesConnus.splice(0, groupesConnus.length, ...nouveauxConnus);
 
-  // 4. Les "unités" pour répartir la carte : chaque groupe, puis chaque petit
+  // 5. Les "unités" pour répartir la carte : chaque groupe, puis chaque petit
   //    paquet restant (paire, personne seule).
   unites = groupesActuels.map((g) => g.membres);
+  const dansUnGroupe = (id) => groupesDePersonne.has(id);
   for (const ids of communautes) {
-    const reste = ids.filter((i) => !groupeDePersonne.has(i)).map((i) => parId.get(i));
+    const reste = ids.filter((i) => !dansUnGroupe(i)).map((i) => parId.get(i));
     if (reste.length) unites.push(reste);
   }
-  for (const r of placees) {
-    if (!groupeDePersonne.has(r.id)) unites.push([r]); // placée "hors groupe" ou groupe disparu
+  for (const r of relations) {
+    if (r.horsGroupesAuto && !dansUnGroupe(r.id)) unites.push([r]);
   }
 }
 
@@ -219,13 +305,27 @@ function renommerGroupe(id, nom) {
   }
 }
 
-// Place une personne dans un groupe (id), hors de tout groupe ("aucun"), ou
-// la rend au calcul automatique (null).
-function placerDansGroupe(idRelation, idGroupe) {
+// Fait entrer (true) ou sortir (false) une personne d'un groupe. Si c'est ce
+// que la détection automatique ferait d'elle-même, on n'enregistre pas de
+// correction.
+function definirAppartenance(idRelation, idGroupe, dedans) {
   const r = trouverRelation(idRelation);
-  if (idGroupe) r.groupe = idGroupe;
-  else delete r.groupe;
+  const auto = (appartenanceAuto.get(idRelation) || new Set()).has(idGroupe) && !r.horsGroupesAuto;
+  r.choixGroupes = r.choixGroupes || {};
+  if (dedans === auto) delete r.choixGroupes[idGroupe];
+  else r.choixGroupes[idGroupe] = dedans;
+  if (!Object.keys(r.choixGroupes).length) delete r.choixGroupes;
 }
+
+// Rend une personne entièrement au calcul automatique (oublie ses corrections).
+function retablirGroupesAutomatiques(idRelation) {
+  const r = trouverRelation(idRelation);
+  delete r.choixGroupes;
+  delete r.horsGroupesAuto;
+}
+
+// La personne a-t-elle des corrections manuelles de ses groupes ?
+const aDesChoixDeGroupes = (r) => Boolean(r.choixGroupes || r.horsGroupesAuto);
 
 // --- Créer, modifier, supprimer un groupe (mode édition « Groupes ») -----------
 
@@ -236,32 +336,37 @@ function creerGroupe(nom) {
   return g;
 }
 
-// Les membres d'un groupe : ceux que le calcul y a mis, et ceux qu'on y a
-// placés à la main (même si le groupe est encore trop petit pour s'afficher).
+// Les membres d'un groupe : ceux du dernier calcul, et ceux qu'on y a ajoutés
+// à la main (même si le groupe est encore trop petit pour s'afficher).
 function membresDuGroupe(id) {
-  return relations.filter((r) => r.groupe === id || (groupeDePersonne.get(r.id) || {}).id === id);
+  return relations.filter((r) =>
+    choixPour(r, id) === true || (choixPour(r, id) !== false && groupesDe(r.id).some((g) => g.id === id)));
 }
 
-// Ajoute une personne au groupe, ou l'en retire si elle en fait déjà partie
-// (elle passe alors « hors groupe »). Renvoie true si elle a été ajoutée.
+// Ajoute une personne au groupe, ou l'en retire si elle en fait déjà partie.
+// Ses autres groupes ne changent pas. Renvoie true si elle a été ajoutée.
 function basculerMembre(idRelation, idGroupe) {
-  const r = trouverRelation(idRelation);
-  const dedans = membresDuGroupe(idGroupe).includes(r);
-  r.groupe = dedans ? "aucun" : idGroupe;
+  const dedans = membresDuGroupe(idGroupe).some((r) => r.id === idRelation);
+  definirAppartenance(idRelation, idGroupe, !dedans);
   return !dedans;
 }
 
-// Supprime un groupe. Ses membres passent « hors groupe » : sinon le calcul
-// automatique recréerait aussitôt le même groupe.
+// Supprime un groupe : il est gardé comme "refusé" pour que la détection ne
+// le recrée pas. Ses membres gardent leurs autres groupes.
 function supprimerGroupe(id) {
-  for (const r of membresDuGroupe(id)) r.groupe = "aucun";
-  const i = groupesConnus.findIndex((g) => g.id === id);
-  if (i !== -1) groupesConnus.splice(i, 1);
+  const g = groupesConnus.find((x) => x.id === id);
+  if (g) g.supprime = true;
+  for (const r of relations) {
+    if (r.choixGroupes) {
+      delete r.choixGroupes[id];
+      if (!Object.keys(r.choixGroupes).length) delete r.choixGroupes;
+    }
+  }
 }
 
 // Tous les groupes qu'on peut modifier : ceux affichés, puis les groupes
 // nommés encore trop petits pour s'afficher.
 function groupesModifiables() {
   return groupesActuels.concat(groupesConnus.filter((g) =>
-    g.nomChoisi && !groupesActuels.some((a) => a.id === g.id)));
+    g.nomChoisi && !g.supprime && !groupesActuels.some((a) => a.id === g.id)));
 }

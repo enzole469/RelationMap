@@ -258,9 +258,13 @@ let traitsVisibles = [];              // liens affichés (dont liens regroupés)
 let unitesVisibles = [];              // paquets pour la répartition
 
 // Le groupe replié qui cache une personne (ou null si elle est visible).
+// Une personne n'est cachée que si elle appartient à un seul groupe, et
+// qu'il est replié. Membre de plusieurs groupes, elle reste visible : elle
+// fait le pont entre eux.
 function groupeReplie(idRelation) {
-  const g = groupeDePersonne.get(idRelation);
-  return g && !groupesOuverts.has(g.id) ? g : null;
+  const groupes = groupesDe(idRelation);
+  if (groupes.length !== 1) return null;
+  return groupesOuverts.has(groupes[0].id) ? null : groupes[0];
 }
 
 // Ce qui représente une personne à l'écran : elle-même, ou la bulle de
@@ -330,6 +334,19 @@ function construireNoeuds() {
     t.nombre += 1;
     t.poids += poidsLien(l);
   }
+  // Une personne qui fait le pont entre plusieurs groupes est reliée à la
+  // bulle de chacun de ses groupes repliés (trait d'appartenance).
+  for (const r of noeuds) {
+    if (estGroupe(r) || groupesDe(r.id).length < 2) continue;
+    for (const g of groupesDe(r.id)) {
+      const n = noeudsGroupes.get(g.id);
+      if (!n) continue;
+      const [p, q] = [r.id, n.id].sort();
+      const cle = "regroupe:" + p + "|" + q;
+      if (!regroupes.has(cle)) regroupes.set(cle, { id: cle, de: p, vers: q, regroupe: true, nombre: 0, poids: 0 });
+      regroupes.get(cle).appartenance = true;
+    }
+  }
   traitsVisibles.push(...regroupes.values());
 
   // Les paquets pour la répartition autour du cercle (un groupe replié = sa
@@ -342,10 +359,14 @@ function construireNoeuds() {
 
 // Recale les membres d'un groupe replié sur sa bulle (qui a pu bouger), en
 // gardant leur disposition : utile avant d'ouvrir le groupe ou d'enregistrer.
+// (seulement les membres cachés dans la bulle : ceux qui font le pont avec
+// un autre groupe sont visibles et bougent d'eux-mêmes)
 function recalerMembres(n) {
-  const c = centreDe(n.groupe.membres);
+  const caches = n.groupe.membres.filter((r) => groupeReplie(r.id) === n.groupe);
+  if (!caches.length) return;
+  const c = centreDe(caches);
   const dx = n.x - c.x, dy = n.y - c.y;
-  for (const r of n.groupe.membres) { r.x += dx; r.y += dy; }
+  for (const r of caches) { r.x += dx; r.y += dy; }
 }
 
 // Enregistre (en recalant d'abord les membres des groupes repliés).
@@ -558,10 +579,11 @@ function ranger() {
   // "rangées" (en quinconce) pour ne pas se toucher.
   const rangees = [0.3, 0.6, 0.85];
   const compteurParDisque = CERCLES.map(() => 0);
+  const dejaPlacees = new Set(); // membre de plusieurs groupes : placé une seule fois
   for (const i of ordre) {
     const part = (2 * Math.PI * unites[i].length) / total;
     for (const c of CERCLES) {
-      const membres = unites[i].filter((r) => r.cercle === c.niveau)
+      const membres = unites[i].filter((r) => r.cercle === c.niveau && !dejaPlacees.has(r.id))
         .sort((a, b) => a.nom.localeCompare(b.nom));
       const { min, max } = limitesDuDisque(c.niveau);
       const haut = Number.isFinite(max) ? max : min + LARGEUR_DISQUE[c.niveau - 1] * 0.6;
@@ -573,6 +595,7 @@ function ranger() {
         r.y = Math.sin(a) * d;
         r.vx = 0;
         r.vy = 0;
+        dejaPlacees.add(r.id);
       });
     }
     angle += part;
@@ -611,8 +634,8 @@ function annulerRangement(anciennes) {
 // Un trait regroupé (vers un groupe replié) attire doucement.
 const forceLiens = d3.forceLink()
   .id((r) => r.id)
-  .distance((l) => (l.regroupe ? rayonBulle(l.source) + rayonBulle(l.target) + 70 : typeDeLien(l.type).distance))
-  .strength((l) => (l.regroupe ? 0.08 : typeDeLien(l.type).attraction));
+  .distance((l) => (l.regroupe ? rayonBulle(l.source) + rayonBulle(l.target) + (l.appartenance ? 40 : 70) : typeDeLien(l.type).distance))
+  .strength((l) => (l.appartenance ? 0.25 : l.regroupe ? 0.08 : typeDeLien(l.type).attraction));
 
 // Quatre règles : chaque bulle reste dans son disque (la plus forte),
 // les bulles reliées se rapprochent, les groupes s'écartent les uns des
@@ -823,10 +846,11 @@ function dessinerCarte() {
     });
 
   traits.classed("lien-regroupe", (l) => Boolean(l.regroupe));
+  traits.classed("lien-appartenance", (l) => Boolean(l.appartenance));
   traits.select(".lien-trait")
     .attr("stroke", (l) => (l.regroupe ? "#6c6f7f" : typeDeLien(l.type).couleur))
-    .attr("stroke-width", (l) => (l.regroupe ? 1.5 + Math.log2(l.nombre) : typeDeLien(l.type).epaisseur))
-    .attr("stroke-dasharray", (l) => (l.regroupe ? null : typeDeLien(l.type).pointilles));
+    .attr("stroke-width", (l) => (l.regroupe ? 1.5 + Math.log2(Math.max(l.nombre, 1)) : typeDeLien(l.type).epaisseur))
+    .attr("stroke-dasharray", (l) => (l.appartenance ? "5 4" : l.regroupe ? null : typeDeLien(l.type).pointilles));
 
   // Les bulles : personnes visibles et groupes repliés
   bulles = calqueBulles
@@ -885,8 +909,8 @@ function dessinerCarte() {
   // sans les liens "se détestent" qui n'attirent pas.
   forceLiens.links(
     traitsVisibles
-      .filter((l) => (l.regroupe ? l.poids > 0 : typeDeLien(l.type).attraction > 0))
-      .map((l) => ({ source: l.de, target: l.vers, type: l.type, regroupe: l.regroupe }))
+      .filter((l) => (l.regroupe ? l.poids > 0 || l.appartenance : typeDeLien(l.type).attraction > 0))
+      .map((l) => ({ source: l.de, target: l.vers, type: l.type, regroupe: l.regroupe, appartenance: l.appartenance }))
   );
   relancerAnimation(0.5);
 

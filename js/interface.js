@@ -37,28 +37,53 @@ document.getElementById("choix-niveau").addEventListener("change", () => {
   mettreEnAvantAnneau(Number(formulaireRelation.elements.niveau.value));
 });
 
-// Le choix du groupe dans la fiche : automatique (par défaut), un groupe
-// précis, ou aucun groupe.
-const choixGroupe = document.getElementById("choix-groupe");
+// Les groupes de la personne, dans sa fiche : une case par groupe (une
+// personne peut être dans plusieurs groupes). Les appartenances choisies à
+// la main sont signalées ; on peut les oublier pour revenir à l'automatique.
+const choixGroupes = document.getElementById("choix-groupes");
+const boutonGroupesAuto = document.getElementById("groupes-auto");
 
 function remplirChoixGroupe(relation) {
-  const actuel = relation ? groupeDePersonne.get(relation.id) : null;
-  const auto = relation && !relation.groupe && actuel ? `Automatique (actuellement : ${actuel.nom})` : "Automatique";
-  // les groupes affichés, puis les groupes nommés qui n'ont plus assez de membres
-  const connus = groupesActuels.concat(groupesConnus.filter((g) =>
-    g.nomChoisi && !groupesActuels.some((a) => a.id === g.id)));
-  choixGroupe.innerHTML = "";
-  const option = (valeur, texte) => {
-    const o = document.createElement("option");
-    o.value = valeur;
-    o.textContent = texte; // texte simple : un nom de groupe ne peut pas injecter de code
-    choixGroupe.append(o);
-  };
-  option("auto", auto);
-  for (const g of connus) option(g.id, g.nom);
-  option("aucun", "Aucun groupe");
-  choixGroupe.value = relation && relation.groupe ? relation.groupe : "auto";
+  const groupes = groupesModifiables();
+  choixGroupes.innerHTML = "";
+  if (!groupes.length) {
+    const p = document.createElement("p");
+    p.className = "vide";
+    p.textContent = "Aucun groupe pour l'instant.";
+    choixGroupes.append(p);
+  }
+  for (const g of groupes) {
+    const label = document.createElement("label");
+    const caseACocher = document.createElement("input");
+    caseACocher.type = "checkbox";
+    caseACocher.value = g.id;
+    caseACocher.checked = Boolean(relation && membresDuGroupe(g.id).some((r) => r.id === relation.id));
+    label.append(caseACocher, document.createTextNode(g.nom)); // texte simple, pas de code
+    if (relation && relation.choixGroupes && g.id in relation.choixGroupes) {
+      const manuel = document.createElement("span");
+      manuel.className = "manuel";
+      manuel.textContent = "✎ choisi à la main";
+      label.append(manuel);
+    }
+    choixGroupes.append(label);
+  }
+  boutonGroupesAuto.hidden = !(relation && aDesChoixDeGroupes(relation));
 }
+
+// Enregistre les cases cochées / décochées pour une personne.
+function enregistrerChoixGroupes(idRelation) {
+  for (const caseACocher of choixGroupes.querySelectorAll("input[type=checkbox]")) {
+    const dedans = membresDuGroupe(caseACocher.value).some((r) => r.id === idRelation);
+    if (caseACocher.checked !== dedans) definirAppartenance(idRelation, caseACocher.value, caseACocher.checked);
+  }
+}
+
+boutonGroupesAuto.addEventListener("click", () => {
+  retablirGroupesAutomatiques(relationOuverte.id);
+  dessinerCarte();
+  ouvrirPourModifier(trouverRelation(relationOuverte.id));
+  afficherToast("Groupes automatiques rétablis.");
+});
 
 function ouvrirPourAjouter() {
   relationOuverte = null;
@@ -96,17 +121,17 @@ formulaireRelation.addEventListener("submit", (evenement) => {
     return;
   }
 
-  const groupe = choixGroupe.value === "auto" ? null : choixGroupe.value;
   if (relationOuverte === null) {
     const nouvelle = ajouterRelation(nom, niveau);
-    if (groupe) placerDansGroupe(nouvelle.id, groupe);
+    dessinerCarte(); // calcule ses groupes automatiques...
+    enregistrerChoixGroupes(nouvelle.id); // ... puis applique les cases cochées
     dessinerCarte();
     // On laisse le panneau ouvert, vide, pour enchaîner les ajouts.
     champNom.value = "";
     champNom.focus();
   } else {
     modifierRelation(relationOuverte.id, nom, niveau);
-    placerDansGroupe(relationOuverte.id, groupe);
+    enregistrerChoixGroupes(relationOuverte.id);
     dessinerCarte();
     fermerPanneau();
   }
