@@ -5,13 +5,14 @@ session et mis à jour à la fin.
 
 ## Où on en est
 
-**Dernière session :** 2026-11-21. Étapes 1, 2 et 3 terminées : carte en
-disques de proximité, ajout / modification / suppression de relations, liens
-de 4 types créés en glissant une bulle sur une autre. Rien n'est encore
-sauvegardé (tout repart des exemples au rechargement).
+**Dernière session :** 2026-11-21. Étapes 1 à 4 terminées : carte en disques
+de proximité, relations et liens (ajout, modification, suppression),
+attraction des liés et répartition des groupes, sauvegarde automatique,
+export / import de fichier. L'app démarre maintenant sur une carte vide :
+l'utilisateur peut commencer à saisir ses vraies relations.
 
-**Prochaine action :** étape 4, sauvegarde automatique sur l'appareil, puis
-export / import de fichier.
+**Prochaine action :** étape 5, PWA (installable, hors ligne), adaptation au
+téléphone, puis mise en ligne (avec accord) et test sur Android.
 
 ## Étapes
 
@@ -38,9 +39,11 @@ export / import de fichier.
 - [x] Modifier le type ou supprimer un lien (clic sur le trait)
 
 ### Étape 4 : sauvegarder les données
-- [ ] Enregistrement automatique sur l'appareil
-- [ ] Exporter les données dans un fichier
-- [ ] Importer un fichier de sauvegarde
+- [x] Enregistrement automatique sur l'appareil (avec la position des bulles)
+- [x] Exporter les données dans un fichier
+- [x] Importer un fichier de sauvegarde (vérifié, avec confirmation)
+- [x] Rappel si aucun export depuis plus de 2 semaines
+- [x] Message clair si les données enregistrées sont illisibles
 
 ### Étape 5 : PWA et téléphone
 - [ ] Rendre l'app installable et utilisable hors ligne
@@ -58,6 +61,9 @@ export / import de fichier.
   disque ? (aujourd'hui elle revient dans le sien ; on change le niveau dans
   sa fiche)
 - Afficher la liste des liens d'une personne dans sa fiche ?
+- À l'étape 5 : les données saisies en local (`index.html` ouvert par
+  double-clic) ne seront pas visibles sur la version en ligne. Il faudra
+  exporter puis importer une fois lors du passage à la version en ligne.
 
 ## Décisions prises
 
@@ -87,4 +93,9 @@ export / import de fichier.
   `js/carte.js`.
 - 2026-11-21 : les anneaux de proximité sont cachés au repos et
   n'apparaissent (en fondu, très transparents) que lorsque le panneau
-  d'ajout / modification d'une personne est ouvert.
+  d'ajout / modification d'une personne est ouvert. L'anneau du niveau
+  choisi ressort davantage.
+- 2026-11-21 : sauvegarde dans `localStorage` (plus simple qu'IndexedDB,
+  suffisant pour ce volume). Les exemples fictifs sont retirés de l'app et
+  déplacés dans `tests/exemples.js`. Panneau « Sauvegarde » pour exporter /
+  importer.

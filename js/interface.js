@@ -153,6 +153,107 @@ document.getElementById("supprimer-lien").addEventListener("click", () => {
 });
 
 // ===========================================================================
+// Vue 3 : sauvegarde, export et import
+// ===========================================================================
+
+const vueSauvegarde = document.getElementById("vue-sauvegarde");
+const choixFichier = document.getElementById("choix-fichier");
+const confirmationImport = document.getElementById("confirmation-import");
+const messageImport = document.getElementById("message-import");
+
+// Les données lues dans le fichier, en attente de confirmation.
+let donneesAImporter = null;
+
+const formatDate = (date) =>
+  date.toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" });
+
+const pluriel = (nombre, mot) => `${nombre} ${mot}${nombre > 1 ? "s" : ""}`;
+
+function ouvrirSauvegarde() {
+  // État de la sauvegarde automatique
+  const etat = document.getElementById("etat-sauvegarde");
+  if (etatSauvegarde.fonctionne) {
+    etat.textContent = `✓ ${pluriel(relations.length, "personne")} et ` +
+      `${pluriel(liens.length, "lien")}, enregistrés automatiquement sur cet appareil.`;
+    etat.classList.remove("alerte");
+  } else {
+    etat.textContent = "⚠ La sauvegarde automatique ne fonctionne pas dans ce " +
+      "navigateur. Exportez un fichier pour ne pas perdre vos données.";
+    etat.classList.add("alerte");
+  }
+
+  // Date du dernier export, avec un rappel s'il date de plus de 2 semaines
+  const dernier = dateDernierExport();
+  const texteExport = document.getElementById("dernier-export");
+  const jours = dernier ? (Date.now() - dernier) / 86400000 : Infinity;
+  texteExport.textContent = dernier
+    ? `Dernier export : ${formatDate(dernier)}.`
+    : "Aucun export pour l'instant.";
+  texteExport.classList.toggle("alerte", jours > 14 && relations.length > 0);
+
+  confirmationImport.hidden = true;
+  messageImport.hidden = true;
+  donneesAImporter = null;
+  selectionner();
+  afficherVue(vueSauvegarde);
+}
+
+document.getElementById("bouton-exporter").addEventListener("click", () => {
+  exporterFichier();
+  ouvrirSauvegarde(); // met à jour la date du dernier export
+});
+
+// Le bouton ouvre la fenêtre de choix de fichier du système.
+document.getElementById("bouton-importer").addEventListener("click", () => {
+  choixFichier.click();
+});
+
+choixFichier.addEventListener("change", async () => {
+  const fichier = choixFichier.files[0];
+  choixFichier.value = ""; // permet de re-choisir le même fichier plus tard
+  if (!fichier) return;
+
+  confirmationImport.hidden = true;
+  messageImport.hidden = true;
+  try {
+    donneesAImporter = await lireFichier(fichier);
+  } catch (erreur) {
+    afficherMessageImport("⚠ " + erreur.message + " Rien n'a été modifié.", true);
+    return;
+  }
+
+  document.getElementById("texte-confirmation-import").textContent =
+    `Remplacer les données de cet appareil ` +
+    `(${pluriel(relations.length, "personne")}, ${pluriel(liens.length, "lien")}) ` +
+    `par celles du fichier ` +
+    `(${pluriel(donneesAImporter.relations.length, "personne")}, ` +
+    `${pluriel(donneesAImporter.liens.length, "lien")}) ? ` +
+    `Les données actuelles seront perdues si vous ne les avez pas exportées.`;
+  confirmationImport.hidden = false;
+});
+
+document.getElementById("confirmer-import").addEventListener("click", () => {
+  if (!donneesAImporter) return; // sécurité : rien à importer
+  remplacerDonnees(donneesAImporter);
+  etatSauvegarde.donneesAbimees = false;
+  donneesAImporter = null;
+  confirmationImport.hidden = true;
+  dessinerCarte();
+  afficherMessageImport("✓ Données importées.", false);
+});
+
+document.getElementById("annuler-import").addEventListener("click", () => {
+  donneesAImporter = null;
+  confirmationImport.hidden = true;
+});
+
+function afficherMessageImport(texte, estUneErreur) {
+  messageImport.textContent = texte;
+  messageImport.classList.toggle("alerte", estUneErreur);
+  messageImport.hidden = false;
+}
+
+// ===========================================================================
 // Ouvrir et fermer le panneau
 // ===========================================================================
 
@@ -161,6 +262,7 @@ const carte = document.getElementById("carte");
 function afficherVue(vue) {
   vueRelation.hidden = vue !== vueRelation;
   vueLien.hidden = vue !== vueLien;
+  vueSauvegarde.hidden = vue !== vueSauvegarde;
   panneau.hidden = false;
   // Les anneaux ne sont visibles que pendant l'édition d'une personne.
   carte.classList.toggle("anneaux-visibles", vue === vueRelation);
@@ -176,6 +278,7 @@ function fermerPanneau() {
 }
 
 document.getElementById("bouton-ajouter").addEventListener("click", ouvrirPourAjouter);
+document.getElementById("bouton-sauvegarde").addEventListener("click", ouvrirSauvegarde);
 document.getElementById("bouton-fermer").addEventListener("click", fermerPanneau);
 
 // Les actions sur la carte

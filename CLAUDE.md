@@ -51,8 +51,13 @@ concentriques selon leur degré de proximité avec moi (au centre).
 - Bibliothèque **D3.js** pour la carte (bulles, liens, cercles), copiée dans le
   projet (dossier `lib/`) plutôt que chargée depuis Internet, pour que l'app
   marche hors ligne et ne contacte aucun service extérieur.
-- Données stockées **localement dans le navigateur** (IndexedDB). Pas de
-  serveur, pas de compte, pas de base de données en ligne.
+- Données stockées **localement dans le navigateur** (`localStorage`, clé
+  `relationmap-donnees`, au même format JSON que le fichier d'export). Pas de
+  serveur, pas de compte, pas de base de données en ligne. Toute donnée lue
+  (appareil ou fichier importé) passe par `verifierDonnees()` avant usage.
+- Le stockage du navigateur est propre à chaque adresse : les données saisies
+  en ouvrant `index.html` en local ne seront pas visibles sur la version en
+  ligne (et inversement). On passe de l'une à l'autre par export / import.
 - Hébergement envisagé : GitHub Pages (gratuit, en HTTPS, nécessaire pour
   installer une PWA sur Android). **Seul le code est publié, jamais les
   données.**
@@ -63,12 +68,14 @@ concentriques selon leur degré de proximité avec moi (au centre).
 
 - `index.html` : la page de l'app.
 - `css/style.css` : l'apparence.
-- `js/donnees.js` : les cercles de proximité, la liste des relations et les
-  actions qui la modifient (ajouter, modifier, supprimer).
-- `js/carte.js` : le dessin de la carte interactive (`dessinerCarte()` la
-  remet à jour après chaque changement).
-- `js/interface.js` : le panneau latéral (vue relation et vue lien).
+- `js/donnees.js` : cercles, types de liens, listes des relations et des
+  liens, actions qui les modifient, sauvegarde automatique, export / import.
+- `js/carte.js` : le dessin de la carte interactive et sa physique
+  (`dessinerCarte()` la remet à jour et sauvegarde après chaque changement).
+- `js/interface.js` : le panneau latéral (vues relation, lien et sauvegarde).
 - `lib/d3.min.js` : la bibliothèque D3 (version 7.9.0), ne pas modifier.
+- `tests/exemples.js` : données fictives pour les tests (`chargerExemples()`),
+  jamais chargé par l'app.
 
 Pour voir l'app : double-cliquer sur `index.html`.
 
@@ -105,8 +112,15 @@ Les données contiennent les noms de vraies personnes : elles restent privées.
   (`--headless=new --allow-file-access-from-files`), avec une page de test
   dans le dossier temporaire qui charge les scripts du projet puis un script
   de scénario ; `--dump-dom` pour lire les résultats, `--screenshot` pour
-  voir le rendu. Pièges : dans ce mode l'animation D3 ne tourne pas, donc
-  appeler `simulation.tick(300)` pour stabiliser ; un clic juste après un
-  glissement est ignoré par D3 (le décaler) ; ne pas réutiliser un nom de
-  variable globale de l'app dans le script de test.
+  voir le rendu. Toujours utiliser un profil Chrome séparé
+  (`--user-data-dir` dans le dossier temporaire) pour ne jamais toucher aux
+  vraies données de l'utilisateur ; vider `localStorage` avant les scripts de
+  l'app, puis appeler `chargerExemples()` (`tests/exemples.js`). Pièges :
+  dans ce mode l'animation D3 ne tourne pas, donc appeler
+  `simulation.tick(3000)` pour stabiliser ; un clic juste après un glissement
+  est ignoré par D3 (le décaler) ; la lecture d'un fichier est asynchrone
+  (attendre son résultat) ; ne pas réutiliser un nom de variable globale de
+  l'app dans le script de test ; en quittant une page, l'app sauvegarde.
+- Toujours regarder une capture d'écran en plus des chiffres : une mesure
+  peut passer alors que le rendu est mauvais.
 - Mettre à jour ce fichier quand une décision importante est prise.

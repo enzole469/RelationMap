@@ -237,7 +237,8 @@ const simulation = d3.forceSimulation()
   .force("liens", forceLiens)
   .force("groupes", forceGroupes)
   .force("ecart", d3.forceCollide(RAYON_BULLE + 14))
-  .on("tick", mettreAJourPositions);
+  .on("tick", mettreAJourPositions)
+  .on("end", sauvegarder); // les bulles se sont arrêtées : on garde leur place
 
 // --- Faire glisser une bulle ----------------------------------------------
 
@@ -290,6 +291,7 @@ const glisser = d3.drag()
       r.vy = 0;
       quandOnRelieDeuxBulles(r, cible);
     }
+    sauvegarder();
   });
 
 // --- Mise à jour de la carte ----------------------------------------------
@@ -365,6 +367,22 @@ function dessinerCarte() {
       .map((l) => ({ source: l.de, target: l.vers, type: l.type }))
   );
   simulation.alpha(0.5).restart();
+
+  // Message d'accueil quand la carte est vide (ou alerte si les données
+  // enregistrées n'ont pas pu être lues au démarrage).
+  const messageVide = document.getElementById("message-vide");
+  messageVide.hidden = relations.length > 0;
+  if (etatSauvegarde.donneesAbimees && relations.length === 0) {
+    messageVide.classList.add("alerte");
+    messageVide.innerHTML = "⚠ Vos données enregistrées n'ont pas pu être lues " +
+      "(elles ont été mises de côté, pas effacées).<br>Ouvrez <strong>Sauvegarde</strong> " +
+      "et importez votre dernier fichier exporté.";
+  } else {
+    messageVide.classList.remove("alerte");
+  }
+
+  // Chaque changement passe par ici : c'est donc ici qu'on sauvegarde.
+  sauvegarder();
 }
 
 // Met en évidence des bulles et/ou un lien (listes vides / null = rien).
@@ -379,4 +397,14 @@ function afficherSelection() {
   traits.classed("selectionne", (l) => l.id === lienSelectionne);
 }
 
+// Quand on quitte la page ou qu'on change d'application (sur téléphone),
+// on enregistre la position actuelle des bulles.
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") sauvegarder();
+});
+
+// Au démarrage, si les bulles ont une place enregistrée, la carte reprend
+// telle qu'on l'a laissée : l'animation repart très doucement.
+const positionsConnues = relations.length > 0 && relations.every((r) => r.x !== undefined);
 dessinerCarte();
+if (positionsConnues) simulation.alpha(0.05);

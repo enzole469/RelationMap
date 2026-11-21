@@ -13,11 +13,20 @@
       <ul id="legende"></ul>
       <ul id="legende-liens"></ul>
     </div>
-    <button id="bouton-ajouter" class="principal">+ Ajouter</button>
+    <div class="actions">
+      <button id="bouton-sauvegarde">Sauvegarde</button>
+      <button id="bouton-ajouter" class="principal">+ Ajouter</button>
+    </div>
   </header>
 
   <!-- La carte est dessinée ici par js/carte.js -->
-  <svg id="carte"></svg>
+  <main>
+    <svg id="carte"></svg>
+    <p id="message-vide" hidden>
+      Votre carte est vide.<br>
+      Cliquez sur <strong>+ Ajouter</strong> pour y placer une première personne.
+    </p>
+  </main>
 
   <!-- Panneau latéral (géré par js/interface.js), avec deux vues possibles -->
   <aside id="panneau" hidden>
@@ -61,6 +70,37 @@
       <div id="zone-suppression-lien" class="zone-bas" hidden>
         <button id="supprimer-lien" class="danger-discret">Supprimer ce lien</button>
       </div>
+    </section>
+
+    <!-- Vue 3 : sauvegarde, export et import -->
+    <section id="vue-sauvegarde" hidden>
+      <h2>Sauvegarde</h2>
+
+      <p id="etat-sauvegarde" class="info"></p>
+
+      <h3>Exporter</h3>
+      <p class="aide">
+        Télécharge toutes vos données dans un fichier. Gardez-le en lieu sûr :
+        c'est votre copie de secours, et c'est lui qui permet de passer vos
+        données sur un autre appareil.
+      </p>
+      <p id="dernier-export" class="info"></p>
+      <button id="bouton-exporter" class="principal">Exporter un fichier</button>
+
+      <h3>Importer</h3>
+      <p class="aide">
+        Remplace toutes les données de cet appareil par celles d'un fichier
+        exporté.
+      </p>
+      <input id="choix-fichier" type="file" accept=".json,application/json" hidden>
+      <button id="bouton-importer">Choisir un fichier…</button>
+
+      <div id="confirmation-import" class="encadre" hidden>
+        <p id="texte-confirmation-import"></p>
+        <button id="confirmer-import" class="danger">Oui, remplacer</button>
+        <button id="annuler-import">Annuler</button>
+      </div>
+      <p id="message-import" class="info" hidden></p>
     </section>
   </aside>
 

@@ -190,7 +190,35 @@ button.danger-discret {
   text-decoration: underline;
 }
 
-#bouton-ajouter { margin-left: auto; }
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* --- Zone de la carte et message quand elle est vide ------------------------ */
+
+main {
+  flex: 1;
+  position: relative;
+  display: flex;
+  min-height: 0;
+}
+
+#message-vide {
+  position: absolute;
+  top: 58%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(320px, calc(100% - 32px));
+  margin: 0;
+  text-align: center;
+  color: var(--texte-doux);
+  line-height: 1.5;
+  pointer-events: none;
+}
+
+#message-vide.alerte { color: #a8321f; }
 
 /* --- Panneau d'ajout / de modification ----------------------------------- */
 
@@ -299,3 +327,45 @@ button.fermer {
 
 #confirmation p { margin: 0 0 12px; }
 #confirmation button { margin: 0 4px; }
+
+/* --- Vue sauvegarde -------------------------------------------------------- */
+
+#panneau {
+  max-height: calc(100% - 88px);
+  overflow-y: auto;
+}
+
+#vue-sauvegarde h3 {
+  margin: 20px 0 6px;
+  font-size: 0.95rem;
+}
+
+.aide {
+  margin: 0 0 8px;
+  font-size: 0.85rem;
+  color: var(--texte-doux);
+  line-height: 1.4;
+}
+
+.info {
+  margin: 0 0 10px;
+  font-size: 0.85rem;
+}
+
+.info.alerte {
+  color: #a8321f;
+  font-weight: 600;
+}
+
+#vue-sauvegarde > button { width: 100%; }
+
+.encadre {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #fbf0ee;
+  font-size: 0.9rem;
+}
+
+.encadre p { margin: 0 0 10px; line-height: 1.4; }
+.encadre button { margin: 0 4px 0 0; }

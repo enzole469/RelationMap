@@ -1,4 +1,4 @@
-// Les données de l'app et les actions qui les modifient.
+// Les données de l'app, les actions qui les modifient, et leur sauvegarde.
 
 // Les 4 cercles de proximité. Le niveau 1 est le plus proche du centre ("moi").
 const CERCLES = [
@@ -21,44 +21,19 @@ const TYPES_DE_LIEN = [
 
 const typeDeLien = (type) => TYPES_DE_LIEN.find((t) => t.type === type);
 
-// Relations fictives, uniquement pour tester l'affichage.
-// Règle du projet : jamais de vrais noms dans le code.
-const RELATIONS_EXEMPLE = [
-  { id: "r1",  nom: "Alice",   cercle: 1 },
-  { id: "r2",  nom: "Bruno",   cercle: 1 },
-  { id: "r3",  nom: "Chloé",   cercle: 2 },
-  { id: "r4",  nom: "David",   cercle: 2 },
-  { id: "r5",  nom: "Emma",    cercle: 2 },
-  { id: "r6",  nom: "Farid",   cercle: 3 },
-  { id: "r7",  nom: "Gaëlle",  cercle: 3 },
-  { id: "r8",  nom: "Hugo",    cercle: 3 },
-  { id: "r9",  nom: "Inès",    cercle: 3 },
-  { id: "r10", nom: "Jules",   cercle: 4 },
-  { id: "r11", nom: "Karima",  cercle: 4 },
-  { id: "r12", nom: "Léo",     cercle: 4 },
-  { id: "r13", nom: "Manon",   cercle: 4 },
-  { id: "r14", nom: "Nathan",  cercle: 4 },
-];
+const LONGUEUR_MAX_NOM = 40;
 
-// Liens fictifs entre les relations d'exemple.
-// "de" et "vers" sont les identifiants des deux relations reliées.
-const LIENS_EXEMPLE = [
-  { id: "l1", de: "r1", vers: "r2",  type: "couple" },
-  { id: "l2", de: "r3", vers: "r6",  type: "ami" },
-  { id: "l3", de: "r4", vers: "r5",  type: "connaissance" },
-  { id: "l4", de: "r8", vers: "r10", type: "conflit" },
-];
-
-// Les listes affichées sur la carte.
-// Pour l'instant rien n'est sauvegardé : tout repart des exemples
-// au rechargement de la page (la sauvegarde arrive à l'étape 4).
-const relations = RELATIONS_EXEMPLE.map((r) => ({ ...r }));
-const liens = LIENS_EXEMPLE.map((l) => ({ ...l }));
+// Les listes affichées sur la carte. Elles sont remplies au démarrage avec
+// les données sauvegardées sur l'appareil (voir plus bas).
+const relations = [];
+const liens = [];
 
 // Crée un identifiant unique ("r..." pour une relation, "l..." pour un lien).
 function nouvelIdentifiant(prefixe) {
   return prefixe + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
+
+// --- Les relations ----------------------------------------------------------
 
 function trouverRelation(id) {
   return relations.find((r) => r.id === id);
@@ -85,7 +60,7 @@ function supprimerRelation(id) {
   }
 }
 
-// --- Les liens ------------------------------------------------------------
+// --- Les liens --------------------------------------------------------------
 
 // Le lien entre deux relations, dans un sens ou dans l'autre (ou undefined).
 function trouverLien(idA, idB) {
@@ -108,3 +83,167 @@ function supprimerLien(id) {
   const position = liens.findIndex((l) => l.id === id);
   if (position !== -1) liens.splice(position, 1);
 }
+
+// ============================================================================
+// Sauvegarde
+// ============================================================================
+
+// Les données sont gardées dans le "localStorage" du navigateur : un petit
+// espace de stockage propre à l'app, sur cet appareil uniquement.
+// Rien n'est envoyé sur Internet.
+const CLE_DONNEES = "relationmap-donnees";
+const CLE_DERNIER_EXPORT = "relationmap-dernier-export";
+const VERSION_FORMAT = 1;
+
+// État de la sauvegarde automatique, affiché dans le panneau "Sauvegarde".
+const etatSauvegarde = { fonctionne: true, derniereFois: null, donneesAbimees: false };
+
+// Les données dans le format enregistré (le même que le fichier d'export).
+// Les positions sont arrondies : inutile de garder 15 chiffres après la virgule.
+function donneesASauvegarder() {
+  return {
+    app: "RelationMap",
+    version: VERSION_FORMAT,
+    date: new Date().toISOString(),
+    relations: relations.map((r) => ({
+      id: r.id,
+      nom: r.nom,
+      cercle: r.cercle,
+      x: r.x === undefined ? undefined : Math.round(r.x),
+      y: r.y === undefined ? undefined : Math.round(r.y),
+    })),
+    liens: liens.map((l) => ({ id: l.id, de: l.de, vers: l.vers, type: l.type })),
+  };
+}
+
+// Enregistre tout sur l'appareil. Appelée après chaque changement.
+function sauvegarder() {
+  try {
+    localStorage.setItem(CLE_DONNEES, JSON.stringify(donneesASauvegarder()));
+    etatSauvegarde.fonctionne = true;
+    etatSauvegarde.derniereFois = new Date();
+  } catch (erreur) {
+    etatSauvegarde.fonctionne = false;
+    console.error("Sauvegarde impossible :", erreur);
+  }
+}
+
+// Vérifie que des données (venant de l'appareil ou d'un fichier importé) sont
+// correctes, et renvoie une version propre. En cas de problème, déclenche une
+// erreur avec un message compréhensible, et rien n'est modifié.
+function verifierDonnees(donnees) {
+  if (!donnees || donnees.app !== "RelationMap") {
+    throw new Error("Ce fichier ne vient pas de RelationMap.");
+  }
+  if (donnees.version > VERSION_FORMAT) {
+    throw new Error("Ce fichier vient d'une version plus récente de l'app.");
+  }
+  if (!Array.isArray(donnees.relations) || !Array.isArray(donnees.liens)) {
+    throw new Error("Le fichier est incomplet.");
+  }
+
+  const niveaux = CERCLES.map((c) => c.niveau);
+  const ids = new Set();
+  const relationsPropres = donnees.relations.map((r, i) => {
+    const nom = typeof r.nom === "string" ? r.nom.trim() : "";
+    if (typeof r.id !== "string" || ids.has(r.id) || nom === "" ||
+        nom.length > LONGUEUR_MAX_NOM || !niveaux.includes(r.cercle)) {
+      throw new Error(`La personne n°${i + 1} du fichier est invalide.`);
+    }
+    ids.add(r.id);
+    const propre = { id: r.id, nom, cercle: r.cercle };
+    if (Number.isFinite(r.x) && Number.isFinite(r.y)) {
+      propre.x = r.x;
+      propre.y = r.y;
+    }
+    return propre;
+  });
+
+  const liensPropres = donnees.liens.map((l, i) => {
+    if (typeof l.id !== "string" || !ids.has(l.de) || !ids.has(l.vers) ||
+        l.de === l.vers || !typeDeLien(l.type)) {
+      throw new Error(`Le lien n°${i + 1} du fichier est invalide.`);
+    }
+    return { id: l.id, de: l.de, vers: l.vers, type: l.type };
+  });
+
+  return { relations: relationsPropres, liens: liensPropres };
+}
+
+// Remplace toutes les données actuelles par des données vérifiées.
+function remplacerDonnees(donneesVerifiees) {
+  relations.splice(0, relations.length, ...donneesVerifiees.relations);
+  liens.splice(0, liens.length, ...donneesVerifiees.liens);
+}
+
+// Au démarrage : récupère les données enregistrées sur l'appareil.
+function chargerDepuisAppareil() {
+  let texte = null;
+  try {
+    texte = localStorage.getItem(CLE_DONNEES);
+  } catch (erreur) {
+    etatSauvegarde.fonctionne = false;
+    console.error("Lecture impossible :", erreur);
+    return;
+  }
+  if (texte === null) return; // première utilisation : carte vide
+
+  try {
+    remplacerDonnees(verifierDonnees(JSON.parse(texte)));
+  } catch (erreur) {
+    // Données abîmées : on les met de côté au lieu de les écraser,
+    // pour pouvoir les récupérer plus tard si besoin.
+    console.error("Données enregistrées illisibles :", erreur);
+    etatSauvegarde.donneesAbimees = true;
+    try {
+      localStorage.setItem(CLE_DONNEES + "-abimees-" + Date.now(), texte);
+    } catch (e) { /* rien de plus à faire */ }
+  }
+}
+
+// --- Export et import d'un fichier --------------------------------------------
+
+// Télécharge toutes les données dans un fichier .json.
+// Le nom contient "sauvegarde" pour être ignoré par Git (voir .gitignore).
+function exporterFichier() {
+  const contenu = JSON.stringify(donneesASauvegarder(), null, 2);
+  const fichier = new Blob([contenu], { type: "application/json" });
+  const lien = document.createElement("a");
+  lien.href = URL.createObjectURL(fichier);
+  lien.download = `relationmap-sauvegarde-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.append(lien);
+  lien.click();
+  lien.remove();
+  setTimeout(() => URL.revokeObjectURL(lien.href), 1000);
+  try {
+    localStorage.setItem(CLE_DERNIER_EXPORT, new Date().toISOString());
+  } catch (e) { /* pas grave */ }
+}
+
+function dateDernierExport() {
+  try {
+    const texte = localStorage.getItem(CLE_DERNIER_EXPORT);
+    return texte ? new Date(texte) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Lit un fichier choisi par l'utilisateur et renvoie ses données vérifiées
+// (sans encore remplacer quoi que ce soit).
+async function lireFichier(fichier) {
+  let donnees;
+  try {
+    donnees = JSON.parse(await fichier.text());
+  } catch (erreur) {
+    throw new Error("Ce fichier est illisible ou abîmé.");
+  }
+  return verifierDonnees(donnees);
+}
+
+// Demande au navigateur de ne pas effacer nos données s'il manque de place.
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage.persist().catch(() => {});
+}
+
+chargerDepuisAppareil();
