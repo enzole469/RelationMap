@@ -5,15 +5,13 @@ session et mis à jour à la fin.
 
 ## Où on en est
 
-**Dernière session :** 2026-11-21. Étapes 1 à 4 terminées, étape 5
-presque finie : l'app est en ligne sur https://enzole469.github.io/RelationMap/
-(GitHub Pages, branche `main`). Le fonctionnement hors connexion a été validé
-en local ; en ligne, seuls les fichiers ont pu être vérifiés (le navigateur
-de test piloté ne permet pas de tester le service worker).
+**Dernière session :** 2026-11-21. Étapes 1 à 5 terminées. L'app est en
+ligne sur https://enzole469.github.io/RelationMap/, installée et testée avec
+succès par l'utilisateur sur ordinateur et sur Android (tactile, liens,
+hors connexion, import des données).
 
-**Prochaine action :** l'utilisateur vérifie l'installation sur ordinateur
-(icône d'installation dans Chrome), puis installe et teste sur Android
-(toucher, glisser, pincer, hors connexion). Corriger ce qui ne va pas.
+**Prochaine action :** au choix de l'utilisateur : étape 6 (informations
+supplémentaires sur les personnes) ou une des questions en suspens.
 
 ## Étapes
 
@@ -54,7 +52,7 @@ de test piloté ne permet pas de tester le service worker).
   minimale, noms lointains cachés tant qu'on n'a pas zoomé)
 - [x] Mettre en ligne sur GitHub Pages (avec mon accord) :
   https://enzole469.github.io/RelationMap/
-- [ ] Installer et tester sur Android
+- [x] Installer et tester sur Android (validé par l'utilisateur)
 
 ### Étape 6 : plus tard
 - [ ] Informations supplémentaires (lieu géographique, etc.)
@@ -66,8 +64,6 @@ de test piloté ne permet pas de tester le service worker).
   disque ? (aujourd'hui elle revient dans le sien ; on change le niveau dans
   sa fiche)
 - Afficher la liste des liens d'une personne dans sa fiche ?
-- Non testé sur un vrai téléphone : le tactile (toucher, glisser, pincer
-  pour zoomer) n'a été vérifié qu'en simulation.
 - À l'étape 5 : les données saisies en local (`index.html` ouvert par
   double-clic) ne seront pas visibles sur la version en ligne. Il faudra
   exporter puis importer une fois lors du passage à la version en ligne.
