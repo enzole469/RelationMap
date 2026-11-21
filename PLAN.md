@@ -181,5 +181,8 @@ supplémentaires sur les personnes) ou une des questions en suspens.
 - 2026-11-22 : lasso dans l'onglet Groupes : glisser sur le fond entoure
   plusieurs personnes ; elles sont toutes ajoutées au groupe choisi (ou
   toutes retirées si elles en faisaient déjà toutes partie), avec
-  « Annuler ». Dans cet onglet, glisser sur le fond ne déplace plus la carte
-  (zoom à la molette / en pinçant toujours possible).
+  « Annuler ».
+- 2026-11-22 : le lasso s'active avec un bouton « ◌ Lasso » dans l'onglet
+  Groupes (bloquer le déplacement de la carte dans tout l'onglet était
+  gênant). Lasso désactivé : glisser déplace la carte ; activé : glisser
+  trace le lasso. Il se désactive en sortant de l'onglet.

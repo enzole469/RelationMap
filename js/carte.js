@@ -103,11 +103,12 @@ const monde = svg.append("g");
 
 const zoom = d3.zoom()
   .scaleExtent([0.15, 4]) // zoom minimum (pour voir les connaissances lointaines) et maximum
-  // En mode Groupes, glisser sur le fond trace un lasso au lieu de déplacer
-  // la carte (le zoom à la molette ou en pinçant reste possible).
+  // Quand le lasso est activé (mode Groupes), glisser sur le fond trace un
+  // lasso au lieu de déplacer la carte (le zoom à la molette ou en pinçant
+  // reste possible).
   .filter((evenement) => {
     if (evenement.button || (evenement.ctrlKey && evenement.type !== "wheel")) return false;
-    if (modeEdition === "groupes" && (evenement.type === "mousedown" ||
+    if (lassoActif && (evenement.type === "mousedown" ||
         (evenement.type === "touchstart" && evenement.touches.length === 1))) return false;
     return true;
   })
@@ -690,6 +691,7 @@ const ouvertsParLeModeGroupes = new Set();
 function changerModeEdition(mode) {
   const avant = modeEdition;
   modeEdition = mode;
+  if (mode !== "groupes") activerLasso(false);
   if (mode === "groupes" && avant !== "groupes") {
     // tous les groupes s'ouvrent, pour que chaque personne soit accessible
     for (const g of groupesActuels) {
@@ -810,14 +812,22 @@ function commencerTraitProvisoire(r) {
 
 // --- Le lasso (mode Groupes) --------------------------------------------------
 
-// En mode Groupes, glisser sur le fond de la carte trace un lasso ; au lâcher,
-// les personnes entourées sont transmises à quandOnEntoure (interface.js).
+// En mode Groupes, avec le bouton « Lasso » activé, glisser sur le fond de la
+// carte trace un lasso ; au lâcher, les personnes entourées sont transmises
+// à quandOnEntoure (interface.js). Sans le lasso, glisser déplace la carte.
 let quandOnEntoure = () => {};
 let lasso = null; // { idPointeur, points: [[x, y]...], trace }
+let lassoActif = false;
+
+function activerLasso(actif) {
+  lassoActif = actif;
+  svg.classed("lasso-actif", actif);
+  if (!actif) annulerLasso();
+}
 
 svg.on("pointerdown.lasso", (evenement) => {
   if (lasso) { annulerLasso(); return; } // un deuxième doigt : on abandonne
-  if (modeEdition !== "groupes" || evenement.button) return;
+  if (!lassoActif || modeEdition !== "groupes" || evenement.button) return;
   // seulement sur le fond (pas sur une bulle, un trait ou un halo)
   if (evenement.target.closest(".bulle, .lien, .halo")) return;
   lasso = {

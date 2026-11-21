@@ -454,7 +454,7 @@ let outilLien = "ami";
 const CONSIGNES = {
   disques: "Faites glisser une bulle dans un autre disque pour changer sa proximité.",
   liens: "Choisissez un outil, puis faites glisser une bulle sur une autre (ou touchez un trait).",
-  groupes: "Choisissez un groupe, puis touchez une personne (ou entourez-en plusieurs en glissant sur le fond) pour l'y ajouter ou l'en retirer.",
+  groupes: "Choisissez un groupe, puis touchez une personne pour l'y ajouter ou l'en retirer. Activez « Lasso » pour en entourer plusieurs d'un coup.",
 };
 
 // Les outils de lien : un bouton par type, plus "Effacer".
@@ -554,9 +554,22 @@ function afficherOutilsGroupes() {
   selectGroupeEdite.disabled = !groupes.length;
   if (groupeEdite) selectGroupeEdite.value = groupeEdite;
   document.getElementById("renommer-groupe").disabled = !groupeEdite;
+  boutonLasso.classList.toggle("choisi", lassoActif);
+  boutonLasso.setAttribute("aria-pressed", String(lassoActif));
   document.getElementById("supprimer-groupe").disabled = !groupeEdite;
   selectionner(groupeEdite ? membresDuGroupe(groupeEdite).map((r) => r.id) : []);
 }
+
+// Bouton « Lasso » : active / désactive le lasso (glisser sur le fond
+// entoure des personnes au lieu de déplacer la carte).
+const boutonLasso = document.getElementById("bouton-lasso");
+boutonLasso.addEventListener("click", () => {
+  activerLasso(!lassoActif);
+  afficherOutilsGroupes();
+  afficherToast(lassoActif
+    ? "Lasso activé : glissez sur le fond pour entourer des personnes."
+    : "Lasso désactivé : glisser déplace de nouveau la carte.");
+});
 
 selectGroupeEdite.addEventListener("change", () => {
   groupeEdite = selectGroupeEdite.value;
