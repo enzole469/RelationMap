@@ -13,6 +13,8 @@
       <ul id="legende"></ul>
       <ul id="legende-liens"></ul>
     </div>
+    <input id="recherche" type="search" placeholder="Rechercher un nom…"
+           autocomplete="off" aria-label="Rechercher un nom">
     <div class="actions">
       <button id="bouton-sauvegarde">Sauvegarde</button>
       <button id="bouton-ajouter" class="principal">+ Ajouter</button>
@@ -22,6 +24,7 @@
   <!-- La carte est dessinée ici par js/carte.js -->
   <main>
     <svg id="carte"></svg>
+    <button id="bouton-recentrer" class="flottant" title="Vue d'ensemble">⌖ Recentrer</button>
     <p id="message-vide" hidden>
       Votre carte est vide.<br>
       Cliquez sur <strong>+ Ajouter</strong> pour y placer une première personne.

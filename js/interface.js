@@ -287,6 +287,37 @@ quandOnRelieDeuxBulles = ouvrirLien;
 quandOnCliqueUnLien = (lien) =>
   ouvrirLien(trouverRelation(lien.de), trouverRelation(lien.vers));
 
+// Recherche : on surligne pendant la frappe ; Entrée centre la carte sur la
+// première personne trouvée et ouvre sa fiche ; Échap efface la recherche.
+const champRecherche = document.getElementById("recherche");
+
+champRecherche.addEventListener("input", () => {
+  const nombre = rechercher(champRecherche.value);
+  champRecherche.classList.toggle("sans-resultat", champRecherche.value.trim() !== "" && nombre === 0);
+});
+
+champRecherche.addEventListener("keydown", (evenement) => {
+  if (evenement.key === "Enter") {
+    const trouvee = resultatsRecherche(champRecherche.value)[0];
+    if (!trouvee) return;
+    viderRecherche();
+    champRecherche.blur();
+    centrerSur(trouvee);
+    ouvrirPourModifier(trouvee);
+  } else if (evenement.key === "Escape") {
+    evenement.stopPropagation();
+    viderRecherche();
+  }
+});
+
+function viderRecherche() {
+  champRecherche.value = "";
+  champRecherche.classList.remove("sans-resultat");
+  rechercher("");
+}
+
+document.getElementById("bouton-recentrer").addEventListener("click", recentrer);
+
 // Un clic sur le fond de la carte ou la touche Échap ferment le panneau.
 carte.addEventListener("click", fermerPanneau);
 document.addEventListener("keydown", (evenement) => {

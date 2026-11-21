@@ -61,8 +61,9 @@ téléphone, puis mise en ligne (avec accord) et test sur Android.
   disque ? (aujourd'hui elle revient dans le sien ; on change le niveau dans
   sa fiche)
 - Afficher la liste des liens d'une personne dans sa fiche ?
-- Autres idées de lisibilité proposées, pas encore faites : recherche d'un
-  nom, bouton « Recentrer », filtres par type de lien.
+- Étape 5 : sur un écran de téléphone (~420 px), le bandeau déborde
+  (boutons « + Ajouter » et « Recentrer » coupés, légende trop large). À
+  revoir en priorité lors de l'adaptation au téléphone.
 - À l'étape 5 : les données saisies en local (`index.html` ouvert par
   double-clic) ne seront pas visibles sur la version en ligne. Il faudra
   exporter puis importer une fois lors du passage à la version en ligne.
@@ -113,3 +114,8 @@ téléphone, puis mise en ligne (avec accord) et test sur Android.
   ses relations restent nets, le reste s'estompe ; panneau d'un lien : les
   deux personnes et leur lien). Place réservée autour de chaque bulle pour
   son nom (fonction `rayonAvecNom`), pour éviter les chevauchements.
+- 2026-11-21 : recherche par nom (sans tenir compte des accents ni des
+  majuscules ; Entrée centre sur la personne et ouvre sa fiche), bouton
+  « Recentrer » (vue d'ensemble incluant les connaissances lointaines),
+  types de liens de la légende cliquables pour les masquer / réafficher
+  (affichage seulement, non mémorisé au rechargement).

@@ -47,11 +47,31 @@ d3.select("#legende")
   .join("li")
   .html((c) => `<span class="pastille" style="background:${c.couleur}"></span>${c.nom}`);
 
-d3.select("#legende-liens")
+// Les types de liens de la légende sont aussi des interrupteurs : un clic
+// masque ou réaffiche ce type de lien sur la carte (affichage seulement,
+// les bulles gardent leur place).
+const typesMasques = new Set();
+
+const legendeLiens = d3.select("#legende-liens")
   .selectAll("li")
   .data(TYPES_DE_LIEN)
   .join("li")
-  .html((t) => exempleDeTrait(t) + t.nom);
+  .append("button")
+  .attr("class", "filtre-lien")
+  .attr("title", "Cliquer pour masquer ou afficher ce type de lien")
+  .html((t) => exempleDeTrait(t) + t.nom)
+  .on("click", (evenement, t) => {
+    if (typesMasques.has(t.type)) typesMasques.delete(t.type);
+    else typesMasques.add(t.type);
+    afficherFiltres();
+  });
+
+function afficherFiltres() {
+  legendeLiens
+    .classed("masque", (t) => typesMasques.has(t.type))
+    .attr("aria-pressed", (t) => String(!typesMasques.has(t.type)));
+  traits.classed("filtre", (l) => typesMasques.has(l.type));
+}
 
 // --- Mise en place de la zone de dessin -----------------------------------
 
@@ -63,14 +83,31 @@ const svg = d3.select("#carte")
 // "monde" contient tout ce qui se déplace et grossit avec le zoom.
 const monde = svg.append("g");
 
-svg.call(
-  d3.zoom()
-    .scaleExtent([0.15, 4]) // zoom minimum (pour voir les connaissances lointaines) et maximum
-    .on("zoom", (evenement) => {
-      monde.attr("transform", evenement.transform);
-      ajusterTailleDesNoms();
-    })
-);
+const zoom = d3.zoom()
+  .scaleExtent([0.15, 4]) // zoom minimum (pour voir les connaissances lointaines) et maximum
+  .on("zoom", (evenement) => {
+    monde.attr("transform", evenement.transform);
+    ajusterTailleDesNoms();
+  });
+svg.call(zoom);
+
+// Vue d'ensemble : centrée sur "moi", assez large pour voir toutes les
+// bulles, y compris les connaissances les plus lointaines.
+function recentrer() {
+  const plusLoin = d3.max(relations, (r) => Math.hypot(r.x, r.y)) || 0;
+  const rayonAVoir = Math.max(rayonDuCercle(CERCLES.length), plusLoin + 60);
+  const echelle = Math.min(1, (tailleVue / 2) / (rayonAVoir + 40));
+  svg.transition().duration(600)
+    .call(zoom.transform, d3.zoomIdentity.scale(echelle));
+}
+
+// Centre la carte sur une personne, en zoomant un peu si besoin.
+function centrerSur(r) {
+  const echelle = Math.max(d3.zoomTransform(svg.node()).k, 1.5);
+  svg.transition().duration(600)
+    .call(zoom.transform,
+      d3.zoomIdentity.translate(-r.x * echelle, -r.y * echelle).scale(echelle));
+}
 
 // --- Les disques de proximité ---------------------------------------------
 
@@ -398,6 +435,8 @@ function dessinerCarte() {
   ajusterTailleDesNoms();
 
   afficherSelection();
+  afficherFiltres();
+  afficherRecherche();
   mettreAJourPositions();
   simulation.nodes(relations);
   calculerGroupes();
@@ -498,6 +537,40 @@ function afficherSelection() {
 
   bulles.classed("estompee", (r) => focus && !nettes.has(r.id));
   traits.classed("estompe", (l) => focus && !lienNet(l));
+}
+
+// --- Recherche ----------------------------------------------------------------
+
+// Texte recherché, sans accents ni majuscules ("" = pas de recherche).
+let texteRecherche = "";
+
+// "Chloé" -> "chloe" : pour comparer sans tenir compte des accents/majuscules.
+const simplifier = (texte) =>
+  texte.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+
+// Les personnes dont le nom contient le texte recherché ; celles dont le nom
+// commence par ce texte sont placées en premier.
+function resultatsRecherche(texte) {
+  const cherche = simplifier(texte);
+  if (cherche === "") return [];
+  const trouvees = relations.filter((r) => simplifier(r.nom).includes(cherche));
+  return trouvees.sort((a, b) =>
+    Number(simplifier(b.nom).startsWith(cherche)) - Number(simplifier(a.nom).startsWith(cherche)));
+}
+
+// Pendant une recherche, les personnes trouvées restent nettes, le reste
+// s'estompe. Renvoie le nombre de personnes trouvées.
+function rechercher(texte) {
+  texteRecherche = simplifier(texte);
+  afficherRecherche();
+  return resultatsRecherche(texte).length;
+}
+
+function afficherRecherche() {
+  const active = texteRecherche !== "";
+  const trouvees = new Set(resultatsRecherche(texteRecherche).map((r) => r.id));
+  bulles.classed("hors-recherche", (r) => active && !trouvees.has(r.id));
+  traits.classed("hors-recherche", active);
 }
 
 // Quand on quitte la page ou qu'on change d'application (sur téléphone),
