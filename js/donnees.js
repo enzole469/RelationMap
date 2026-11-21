@@ -10,11 +10,13 @@ const CERCLES = [
 
 // Les types de liens entre deux relations, et leur apparence sur la carte.
 // epaisseur : largeur du trait ; pointilles : longueur trait/espace (null = plein).
+// attraction : force avec laquelle les deux bulles se rapprochent (0 = aucune,
+// 1 = très forte) ; distance : écart visé entre leurs centres.
 const TYPES_DE_LIEN = [
-  { type: "couple",       nom: "En couple",      couleur: "#2b2d42", epaisseur: 5,   pointilles: null },
-  { type: "ami",          nom: "Amis",           couleur: "#2b2d42", epaisseur: 2.5, pointilles: null },
-  { type: "connaissance", nom: "Se connaissent", couleur: "#2b2d42", epaisseur: 1.5, pointilles: "3 5" },
-  { type: "conflit",      nom: "Se détestent",   couleur: "#c0392b", epaisseur: 2.5, pointilles: "10 6" },
+  { type: "couple",       nom: "En couple",      couleur: "#2b2d42", epaisseur: 5,   pointilles: null,   attraction: 0.7,  distance: 75 },
+  { type: "ami",          nom: "Amis",           couleur: "#2b2d42", epaisseur: 2.5, pointilles: null,   attraction: 0.4,  distance: 90 },
+  { type: "connaissance", nom: "Se connaissent", couleur: "#2b2d42", epaisseur: 1.5, pointilles: "3 5",  attraction: 0.15, distance: 110 },
+  { type: "conflit",      nom: "Se détestent",   couleur: "#c0392b", epaisseur: 2.5, pointilles: "10 6", attraction: 0,    distance: 0 },
 ];
 
 const typeDeLien = (type) => TYPES_DE_LIEN.find((t) => t.type === type);

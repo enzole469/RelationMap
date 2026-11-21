@@ -75,3 +75,7 @@ export / import de fichier.
 - 2026-11-21 : pendant qu'on fait glisser une bulle, toutes les autres sont
   figées (sinon la bulle visée était repoussée et fuyait, ce qui empêchait
   de créer des liens).
+- 2026-11-21 : les bulles reliées s'attirent selon le type de lien (couple
+  fort, amis moyen, se connaissent léger, se détestent aucun), sans jamais
+  sortir de leur disque. Réglages `attraction` / `distance` dans
+  `TYPES_DE_LIEN` (`js/donnees.js`).

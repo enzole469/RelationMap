@@ -130,10 +130,18 @@ function mettreAJourPositions() {
     .attr("y2", (l) => relationsParId.get(l.vers).y);
 }
 
-// Deux règles : chaque bulle reste dans son disque,
-// et les bulles se repoussent pour ne pas se chevaucher.
+// Les bulles reliées s'attirent, plus ou moins selon le type de lien.
+const forceLiens = d3.forceLink()
+  .id((r) => r.id)
+  .distance((l) => typeDeLien(l.type).distance)
+  .strength((l) => typeDeLien(l.type).attraction);
+
+// Trois règles : chaque bulle reste dans son disque (la plus forte),
+// les bulles reliées se rapprochent, et les bulles se repoussent
+// pour ne pas se chevaucher.
 const simulation = d3.forceSimulation()
   .force("disque", forceDisque)
+  .force("liens", forceLiens)
   .force("ecart", d3.forceCollide(RAYON_BULLE + 14))
   .on("tick", mettreAJourPositions);
 
@@ -254,6 +262,13 @@ function dessinerCarte() {
   afficherSelection();
   mettreAJourPositions();
   simulation.nodes(relations);
+  // D3 transforme les liens qu'on lui donne : on lui passe donc des copies,
+  // sans les liens "se détestent" qui n'attirent pas.
+  forceLiens.links(
+    liens
+      .filter((l) => typeDeLien(l.type).attraction > 0)
+      .map((l) => ({ source: l.de, target: l.vers, type: l.type }))
+  );
   simulation.alpha(0.5).restart();
 }
 
