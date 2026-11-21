@@ -235,12 +235,22 @@ button.filtre-lien.masque {
 /* Type de lien masqué par le filtre de la légende */
 .lien.filtre { display: none; }
 
-/* Bouton "Recentrer", posé sur la carte en bas à droite */
-button.flottant {
+/* Boutons "Ranger" et "Recentrer", posés sur la carte en bas à droite */
+.boutons-flottants {
   position: absolute;
   right: 16px;
   bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+  display: flex;
+  gap: 8px;
+}
+
+.boutons-flottants button { box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12); }
+
+/* Trait qui suit le pointeur en mode édition des liens */
+.trait-provisoire {
+  stroke-linecap: round;
+  opacity: 0.85;
+  pointer-events: none;
 }
 
 /* La bulle dont la fiche est ouverte */
@@ -639,7 +649,19 @@ button.outil-effacer.choisi { border-color: #a8321f; background: #fbf0ee; }
   background: var(--texte);
   color: white;
   font-size: 0.9rem;
-  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#toast[hidden] { display: none; }
+
+#toast-action {
+  padding: 2px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  background: none;
+  color: white;
+  font-weight: 600;
 }
 
 @media (max-width: 700px) {

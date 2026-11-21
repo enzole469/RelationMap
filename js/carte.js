@@ -273,40 +273,20 @@ function mettreAJourPositions() {
     .attr("y2", (l) => relationsParId.get(l.vers).y);
 }
 
-// --- Les groupes ------------------------------------------------------------
+// --- La répartition des groupes ---------------------------------------------
 
-// Un groupe = des personnes reliées entre elles, directement ou par
-// l'intermédiaire d'autres. Une personne sans lien forme un groupe à elle
-// seule. Les liens "se détestent" ne créent pas de groupe.
-let groupes = [];
+// Les groupes eux-mêmes sont calculés dans groupes.js (calculerGroupes) :
+// "unites" contient tous les paquets de personnes (groupes, paires,
+// personnes seules).
 
-function calculerGroupes() {
-  // Chaque personne pointe vers un "représentant" de son groupe.
-  const representant = new Map(relations.map((r) => [r.id, r.id]));
-  const trouverRepresentant = (id) =>
-    representant.get(id) === id ? id : trouverRepresentant(representant.get(id));
-
-  // Chaque lien fusionne les groupes de ses deux personnes.
-  for (const l of liens) {
-    if (typeDeLien(l.type).attraction > 0) {
-      representant.set(trouverRepresentant(l.de), trouverRepresentant(l.vers));
-    }
-  }
-
-  const parRepresentant = new Map();
-  for (const r of relations) {
-    const chef = trouverRepresentant(r.id);
-    if (!parRepresentant.has(chef)) parRepresentant.set(chef, []);
-    parRepresentant.get(chef).push(r);
-  }
-  groupes = [...parRepresentant.values()];
-}
-
-// Force d'écartement entre groupes, "autour du cercle" : comme des convives
-// autour d'une table ronde, chaque groupe s'éloigne de ses voisins jusqu'à
-// ce que tous soient répartis uniformément sur le tour.
-// La poussée est forte entre groupes proches et faible entre groupes
-// éloignés : le mouvement ralentit à mesure que la répartition s'équilibre.
+// Force d'écartement entre paquets, "autour du cercle" : comme des convives
+// autour d'une table ronde, chaque paquet s'éloigne de ses voisins jusqu'à
+// ce que tous soient répartis sur le tour. Chaque paquet a droit à une part
+// du tour proportionnelle à son nombre de personnes : un grand groupe prend
+// plus de place qu'une personne seule.
+// La poussée est forte entre paquets qui empiètent l'un sur l'autre et
+// faible entre paquets éloignés : le mouvement ralentit à mesure que la
+// répartition s'équilibre.
 const ECARTEMENT_GROUPES = 0.3;  // intensité de la poussée
 const VITESSE_MAX_GROUPES = 0.4; // limite de vitesse, pour un mouvement lent
 
@@ -319,41 +299,117 @@ function ecartAngle(a, b) {
 }
 
 function forceGroupes(alpha) {
-  if (groupes.length < 2) return;
+  if (unites.length < 2) return;
+  const total = d3.sum(unites, (u) => u.length);
 
-  // Centre de chaque groupe (moyenne des positions de ses membres)
-  // et sa direction vue depuis "moi" (son angle).
-  const centres = groupes.map((membres) => {
+  // Centre de chaque paquet (moyenne des positions de ses membres), sa
+  // direction vue depuis "moi" (son angle) et sa part du tour.
+  const centres = unites.map((membres) => {
     const x = d3.mean(membres, (r) => r.x);
     const y = d3.mean(membres, (r) => r.y);
-    return { x, y, angle: Math.atan2(y, x), distance: Math.hypot(x, y) || 1 };
+    return { x, y, angle: Math.atan2(y, x), distance: Math.hypot(x, y) || 1,
+             part: (2 * Math.PI * membres.length) / total };
   });
 
   centres.forEach((centre, i) => {
-    // Somme des poussées des autres groupes : chacun pousse d'autant plus
-    // fort qu'il est proche en angle (0.15 évite une poussée infinie).
+    // Somme des poussées des autres paquets : chacun pousse d'autant plus
+    // fort que l'espace libre entre les deux parts est petit.
     let somme = 0;
     centres.forEach((autre, j) => {
       if (i === j) return;
       const ecart = ecartAngle(centre.angle, autre.angle);
-      somme += Math.sign(ecart) / Math.max(Math.abs(ecart), 0.15);
+      const espaceLibre = Math.abs(ecart) - 0.9 * (centre.part + autre.part) / 2;
+      somme += Math.sign(ecart) / Math.max(espaceLibre, 0.15);
     });
 
     // La racine carrée fait durer cette poussée plus longtemps que les
-    // autres règles pendant que l'animation ralentit : les groupes ont le
+    // autres règles pendant que l'animation ralentit : les paquets ont le
     // temps de finir de se répartir.
     let poussee = ECARTEMENT_GROUPES * Math.sqrt(alpha) * somme;
     poussee = Math.max(-VITESSE_MAX_GROUPES, Math.min(VITESSE_MAX_GROUPES, poussee));
 
-    // On pousse tout le groupe le long du cercle (perpendiculairement
+    // On pousse tout le paquet le long du cercle (perpendiculairement
     // à la direction de "moi"), sans le rapprocher ni l'éloigner du centre.
     const tx = -centre.y / centre.distance;
     const ty = centre.x / centre.distance;
-    for (const r of groupes[i]) {
+    for (const r of unites[i]) {
       r.vx += tx * poussee;
       r.vy += ty * poussee;
     }
   });
+}
+
+// --- Ranger la carte ---------------------------------------------------------
+
+// Range la carte "en parts de gâteau" : chaque paquet reçoit une part du
+// tour proportionnelle à sa taille, et les paquets liés entre eux sont mis
+// côte à côte. Dans sa part, chaque personne est placée dans son disque.
+// Renvoie les anciennes positions (pour pouvoir annuler).
+function ranger() {
+  const anciennes = relations.map((r) => ({ id: r.id, x: r.x, y: r.y }));
+  if (!unites.length) return anciennes;
+
+  // Poids des liens entre paquets
+  const uniteDe = new Map();
+  unites.forEach((u, i) => u.forEach((r) => uniteDe.set(r.id, i)));
+  const poidsEntre = (i, j) => d3.sum(liens, (l) => {
+    const a = uniteDe.get(l.de), b = uniteDe.get(l.vers);
+    return (a === i && b === j) || (a === j && b === i) ? poidsLien(l) : 0;
+  });
+
+  // Ordre autour du cercle : on part du plus grand paquet, puis on ajoute à
+  // chaque fois celui qui est le plus lié au dernier placé.
+  const restants = d3.range(unites.length).sort((a, b) => unites[b].length - unites[a].length);
+  const ordre = [restants.shift()];
+  while (restants.length) {
+    const dernier = ordre[ordre.length - 1];
+    restants.sort((a, b) => poidsEntre(dernier, b) - poidsEntre(dernier, a) ||
+      d3.sum(ordre, (o) => poidsEntre(o, b)) - d3.sum(ordre, (o) => poidsEntre(o, a)) ||
+      unites[b].length - unites[a].length);
+    ordre.push(restants.shift());
+  }
+
+  // Placement dans les parts
+  const total = d3.sum(unites, (u) => u.length);
+  let angle = -Math.PI / 2; // on commence en haut
+  // Dans chaque disque, les bulles successives alternent entre trois
+  // "rangées" (en quinconce) pour ne pas se toucher.
+  const rangees = [0.3, 0.6, 0.85];
+  const compteurParDisque = CERCLES.map(() => 0);
+  for (const i of ordre) {
+    const part = (2 * Math.PI * unites[i].length) / total;
+    for (const c of CERCLES) {
+      const membres = unites[i].filter((r) => r.cercle === c.niveau)
+        .sort((a, b) => a.nom.localeCompare(b.nom));
+      const { min, max } = limitesDuDisque(c.niveau);
+      const haut = Number.isFinite(max) ? max : min + LARGEUR_DISQUE[c.niveau - 1] * 0.6;
+      membres.forEach((r, k) => {
+        const a = angle + part * (k + 0.5) / membres.length;
+        const rangee = rangees[compteurParDisque[c.niveau - 1]++ % rangees.length];
+        const d = min + (haut - min) * rangee;
+        r.x = Math.cos(a) * d;
+        r.y = Math.sin(a) * d;
+        r.vx = 0;
+        r.vy = 0;
+      });
+    }
+    angle += part;
+  }
+  mettreAJourPositions();
+  simulation.alpha(0.4).restart();
+  sauvegarder();
+  return anciennes;
+}
+
+// Remet les positions d'avant un rangement.
+function annulerRangement(anciennes) {
+  for (const p of anciennes) {
+    const r = relationsParId.get(p.id);
+    if (r) { r.x = p.x; r.y = p.y; r.vx = 0; r.vy = 0; }
+  }
+  mettreAJourPositions();
+  simulation.alpha(0.2).restart();
+  sauvegarder();
 }
 
 // --- Les liens ----------------------------------------------------------------
@@ -396,8 +452,20 @@ let niveauVise = null;
 // (définie dans interface.js).
 let quandOnChangeDeDisque = () => {};
 
+// En mode Liens, la carte reste immobile pour qu'on puisse enchaîner les
+// liens sans que les bulles bougent ; en sortant de ce mode, elle reprend
+// son mouvement (les personnes nouvellement liées se rapprochent).
 function changerModeEdition(mode) {
+  const avant = modeEdition;
   modeEdition = mode;
+  if (mode === "liens") simulation.stop();
+  else if (avant === "liens") simulation.alpha(0.5).restart();
+}
+
+// Relance l'animation, sauf en mode Liens où la carte reste immobile.
+function relancerAnimation(alpha) {
+  if (modeEdition === "liens") return;
+  simulation.alpha(alpha).restart();
 }
 
 // Le niveau de proximité correspondant à une distance au centre.
@@ -421,22 +489,29 @@ function bulleSousLePointeur(x, y, deplacee) {
 
 const glisser = d3.drag()
   .on("start", (evenement, r) => {
-    if (!evenement.active) simulation.alphaTarget(0.3).restart();
+    // L'animation est relancée pour que les autres bulles s'écartent
+    // pendant qu'on déplace celle-ci (inutile en mode Liens : rien ne bouge).
+    if (!evenement.active && modeEdition !== "liens") simulation.alphaTarget(0.3).restart();
     positionDeDepart = { x: r.x, y: r.y };
-    // Pendant le glissement, toutes les bulles sont figées sur place :
-    // sinon la bulle visée serait repoussée et s'enfuirait.
-    for (const autre of relations) {
-      autre.fx = autre.x;
-      autre.fy = autre.y;
-    }
+    r.fx = r.x;
+    r.fy = r.y;
+    // En mode Liens, la bulle ne bouge pas : un trait part d'elle et suit
+    // le pointeur, avec le style de l'outil choisi.
+    if (modeEdition === "liens") commencerTraitProvisoire(r);
   })
   .on("drag", (evenement, r) => {
-    r.fx = evenement.x;
-    r.fy = evenement.y;
     if (modeEdition === "liens") {
+      // la bulle reste fixe ; c'est le trait qui suit le pointeur
       bulleVisee = bulleSousLePointeur(evenement.x, evenement.y, r);
       bulles.classed("visee", (b) => b === bulleVisee);
-    } else if (modeEdition === "disques") {
+      // le trait s'accroche au centre de la bulle visée
+      const bout = bulleVisee || { x: evenement.x, y: evenement.y };
+      traitProvisoire.attr("x2", bout.x).attr("y2", bout.y);
+      return;
+    }
+    r.fx = evenement.x;
+    r.fy = evenement.y;
+    if (modeEdition === "disques") {
       // Le disque d'arrivée ressort pendant le glissement.
       niveauVise = niveauALaDistance(Math.hypot(evenement.x, evenement.y));
       mettreEnAvantAnneau(niveauVise);
@@ -444,20 +519,15 @@ const glisser = d3.drag()
   })
   .on("end", (evenement, r) => {
     if (!evenement.active) simulation.alphaTarget(0);
-    // Toutes les bulles redeviennent libres.
-    for (const autre of relations) {
-      autre.fx = null;
-      autre.fy = null;
-    }
-    if (modeEdition === "liens" && bulleVisee) {
+    r.fx = null;
+    r.fy = null;
+    if (modeEdition === "liens") {
+      traitProvisoire.remove();
+      traitProvisoire = null;
+      bulles.classed("visee", false);
       const cible = bulleVisee;
       bulleVisee = null;
-      bulles.classed("visee", false);
-      r.x = positionDeDepart.x;
-      r.y = positionDeDepart.y;
-      r.vx = 0;
-      r.vy = 0;
-      quandOnRelieDeuxBulles(r, cible);
+      if (cible) quandOnRelieDeuxBulles(r, cible);
     } else if (modeEdition === "disques" && niveauVise !== null) {
       const niveau = niveauVise;
       niveauVise = null;
@@ -466,6 +536,23 @@ const glisser = d3.drag()
     }
     sauvegarder();
   });
+
+// Le trait provisoire qui suit le pointeur en mode Liens. Son style est
+// celui de l'outil choisi (outilLien, dans interface.js) ; pour "Effacer",
+// un pointillé rouge fin.
+let traitProvisoire = null;
+
+function commencerTraitProvisoire(r) {
+  const outil = typeof outilLien === "string" ? outilLien : "ami";
+  const type = typeDeLien(outil);
+  traitProvisoire = calqueBulles.insert("line", ":first-child") // sous les bulles
+    .attr("class", "trait-provisoire")
+    .attr("x1", r.x).attr("y1", r.y)
+    .attr("x2", r.x).attr("y2", r.y)
+    .attr("stroke", type ? type.couleur : "#c0392b")
+    .attr("stroke-width", type ? Math.max(type.epaisseur, 2) : 2)
+    .attr("stroke-dasharray", type ? type.pointilles : "2 5");
+}
 
 // --- Mise à jour de la carte ----------------------------------------------
 
@@ -547,7 +634,7 @@ function dessinerCarte() {
       .filter((l) => typeDeLien(l.type).attraction > 0)
       .map((l) => ({ source: l.de, target: l.vers, type: l.type }))
   );
-  simulation.alpha(0.5).restart();
+  relancerAnimation(0.5);
 
   // Message d'accueil quand la carte est vide (ou alerte si les données
   // enregistrées n'ont pas pu être lues au démarrage).

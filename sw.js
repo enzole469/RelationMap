@@ -18,6 +18,7 @@ const FICHIERS = [
   "css/style.css",
   "lib/d3.min.js",
   "js/donnees.js",
+  "js/groupes.js",
   "js/carte.js",
   "js/interface.js",
   "icones/icone-192.png",

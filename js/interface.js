@@ -388,14 +388,38 @@ quandOnChangeDeDisque = (relation, niveau) => {
   afficherToast(`${relation.nom} : ${nomNiveau}.`);
 };
 
-// Petit message qui s'efface tout seul après quelques secondes.
+// Petit message qui s'efface tout seul après quelques secondes, avec
+// éventuellement un bouton d'action (par exemple « Annuler »).
 let minuterieToast = null;
-function afficherToast(texte) {
-  toast.textContent = texte;
+const toastTexte = document.getElementById("toast-texte");
+const toastAction = document.getElementById("toast-action");
+let actionToast = null;
+
+function afficherToast(texte, action = null) {
+  toastTexte.textContent = texte;
+  actionToast = action;
+  toastAction.hidden = !action;
+  if (action) toastAction.textContent = action.libelle;
   toast.hidden = false;
   clearTimeout(minuterieToast);
-  minuterieToast = setTimeout(() => { toast.hidden = true; }, 2500);
+  minuterieToast = setTimeout(() => { toast.hidden = true; actionToast = null; },
+    action ? 6000 : 2500);
 }
+
+toastAction.addEventListener("click", () => {
+  if (actionToast) actionToast.faire();
+  actionToast = null;
+  toast.hidden = true;
+});
+
+// Bouton « Ranger » : range la carte par groupes, avec possibilité d'annuler.
+document.getElementById("bouton-ranger").addEventListener("click", () => {
+  const anciennes = ranger();
+  afficherToast("Carte rangée par groupes.", {
+    libelle: "Annuler",
+    faire: () => annulerRangement(anciennes),
+  });
+});
 
 // Recherche : on surligne pendant la frappe ; Entrée centre la carte sur la
 // première personne trouvée et ouvre sa fiche ; Échap efface la recherche.

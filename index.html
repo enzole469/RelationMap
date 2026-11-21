@@ -38,7 +38,10 @@
   <!-- La carte est dessinée ici par js/carte.js -->
   <main>
     <svg id="carte"></svg>
-    <button id="bouton-recentrer" class="flottant" title="Vue d'ensemble">⌖ Recentrer</button>
+    <div class="boutons-flottants">
+      <button id="bouton-ranger" title="Ranger la carte par groupes">⟳ Ranger</button>
+      <button id="bouton-recentrer" title="Vue d'ensemble">⌖ Recentrer</button>
+    </div>
 
     <!-- Barre du mode édition (gérée par js/interface.js) -->
     <div id="barre-edition" hidden>
@@ -52,7 +55,10 @@
     </div>
 
     <!-- Petit message de confirmation après une action -->
-    <p id="toast" role="status" aria-live="polite" hidden></p>
+    <div id="toast" role="status" aria-live="polite" hidden>
+      <span id="toast-texte"></span>
+      <button id="toast-action" hidden></button>
+    </div>
     <p id="message-vide" hidden>
       Votre carte est vide.<br>
       Touchez <strong>+</strong> pour y placer une première personne.
@@ -135,9 +141,10 @@
     </section>
   </aside>
 
-  <!-- L'ordre compte : la bibliothèque, les données, la carte, puis le panneau -->
+  <!-- L'ordre compte : la bibliothèque, les données, les groupes, la carte, puis le panneau -->
   <script src="lib/d3.min.js"></script>
   <script src="js/donnees.js"></script>
+  <script src="js/groupes.js"></script>
   <script src="js/carte.js"></script>
   <script src="js/interface.js"></script>
   <script>

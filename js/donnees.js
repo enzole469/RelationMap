@@ -27,8 +27,10 @@ const LONGUEUR_MAX_NOM = 40;
 // les données sauvegardées sur l'appareil (voir plus bas).
 const relations = [];
 const liens = [];
+// Les groupes connus (noms choisis, membres au dernier calcul) : voir groupes.js.
+const groupesConnus = [];
 
-// Crée un identifiant unique ("r..." pour une relation, "l..." pour un lien).
+// Crée un identifiant unique ("r..." relation, "l..." lien, "g..." groupe).
 function nouvelIdentifiant(prefixe) {
   return prefixe + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
@@ -93,7 +95,7 @@ function supprimerLien(id) {
 // Rien n'est envoyé sur Internet.
 const CLE_DONNEES = "relationmap-donnees";
 const CLE_DERNIER_EXPORT = "relationmap-dernier-export";
-const VERSION_FORMAT = 1;
+const VERSION_FORMAT = 2; // 2 : ajout des groupes
 
 // État de la sauvegarde automatique, affiché dans le panneau "Sauvegarde".
 const etatSauvegarde = { fonctionne: true, derniereFois: null, donneesAbimees: false };
@@ -109,10 +111,12 @@ function donneesASauvegarder() {
       id: r.id,
       nom: r.nom,
       cercle: r.cercle,
+      groupe: r.groupe,
       x: r.x === undefined ? undefined : Math.round(r.x),
       y: r.y === undefined ? undefined : Math.round(r.y),
     })),
     liens: liens.map((l) => ({ id: l.id, de: l.de, vers: l.vers, type: l.type })),
+    groupes: groupesConnus.map((g) => ({ id: g.id, nom: g.nom, nomChoisi: g.nomChoisi, membres: g.membres })),
   };
 }
 
@@ -152,6 +156,8 @@ function verifierDonnees(donnees) {
     }
     ids.add(r.id);
     const propre = { id: r.id, nom, cercle: r.cercle };
+    // groupe choisi à la main : identifiant de groupe, ou "aucun"
+    if (typeof r.groupe === "string" && r.groupe.length <= 40) propre.groupe = r.groupe;
     if (Number.isFinite(r.x) && Number.isFinite(r.y)) {
       propre.x = r.x;
       propre.y = r.y;
@@ -167,13 +173,25 @@ function verifierDonnees(donnees) {
     return { id: l.id, de: l.de, vers: l.vers, type: l.type };
   });
 
-  return { relations: relationsPropres, liens: liensPropres };
+  // Les groupes (absents des fichiers de la version 1)
+  const groupes = Array.isArray(donnees.groupes) ? donnees.groupes : [];
+  const groupesPropres = groupes.map((g, i) => {
+    const nom = typeof g.nom === "string" ? g.nom.trim() : "";
+    if (typeof g.id !== "string" || nom === "" || nom.length > LONGUEUR_MAX_NOM || !Array.isArray(g.membres)) {
+      throw new Error(`Le groupe n°${i + 1} du fichier est invalide.`);
+    }
+    return { id: g.id, nom, nomChoisi: g.nomChoisi === true,
+             membres: g.membres.filter((m) => typeof m === "string" && ids.has(m)) };
+  });
+
+  return { relations: relationsPropres, liens: liensPropres, groupes: groupesPropres };
 }
 
 // Remplace toutes les données actuelles par des données vérifiées.
 function remplacerDonnees(donneesVerifiees) {
   relations.splice(0, relations.length, ...donneesVerifiees.relations);
   liens.splice(0, liens.length, ...donneesVerifiees.liens);
+  groupesConnus.splice(0, groupesConnus.length, ...(donneesVerifiees.groupes || []));
 }
 
 // Au démarrage : récupère les données enregistrées sur l'appareil.
