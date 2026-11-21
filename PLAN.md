@@ -5,14 +5,15 @@ session et mis à jour à la fin.
 
 ## Où on en est
 
-**Dernière session :** 2026-11-21. Étapes 1 à 4 terminées, étape 5 bien
-avancée : l'app est une PWA installable qui fonctionne hors connexion, et
-son affichage est adapté au téléphone. Reste la mise en ligne et le test sur
-un vrai téléphone Android.
+**Dernière session :** 2026-11-21. Étapes 1 à 4 terminées, étape 5
+presque finie : l'app est en ligne sur https://enzole469.github.io/RelationMap/
+(GitHub Pages, branche `main`). Le fonctionnement hors connexion a été validé
+en local ; en ligne, seuls les fichiers ont pu être vérifiés (le navigateur
+de test piloté ne permet pas de tester le service worker).
 
-**Prochaine action :** mise en ligne sur GitHub Pages (avec l'accord de
-l'utilisateur : compte GitHub, dépôt public), puis installation et test sur
-Android.
+**Prochaine action :** l'utilisateur vérifie l'installation sur ordinateur
+(icône d'installation dans Chrome), puis installe et teste sur Android
+(toucher, glisser, pincer, hors connexion). Corriger ce qui ne va pas.
 
 ## Étapes
 
@@ -51,7 +52,8 @@ Android.
 - [x] Adapter l'affichage et le tactile au téléphone (bandeau compact avec
   menu ☰, panneau en bas d'écran, bulles et zones tactiles de taille
   minimale, noms lointains cachés tant qu'on n'a pas zoomé)
-- [ ] Mettre en ligne sur GitHub Pages (avec mon accord)
+- [x] Mettre en ligne sur GitHub Pages (avec mon accord) :
+  https://enzole469.github.io/RelationMap/
 - [ ] Installer et tester sur Android
 
 ### Étape 6 : plus tard
@@ -64,9 +66,6 @@ Android.
   disque ? (aujourd'hui elle revient dans le sien ; on change le niveau dans
   sa fiche)
 - Afficher la liste des liens d'une personne dans sa fiche ?
-- Mise en ligne : il faut un compte GitHub. L'outil `gh` n'est pas installé.
-  Sur un compte gratuit, GitHub Pages demande un dépôt **public** (le code
-  sera visible, pas les données). Attendre l'accord de l'utilisateur.
 - Non testé sur un vrai téléphone : le tactile (toucher, glisser, pincer
   pour zoomer) n'a été vérifié qu'en simulation.
 - À l'étape 5 : les données saisies en local (`index.html` ouvert par
@@ -134,3 +133,6 @@ Android.
   (`AGRANDISSEMENT_REFERENCE`) afin que la disposition soit identique sur
   tous les appareils. Service worker « réseau d'abord » : les mises à jour
   arrivent seules, sans numéro de version à gérer.
+- 2026-11-21 : mise en ligne sur GitHub Pages (dépôt enzole469/RelationMap,
+  branche `main`, racine). Publier une mise à jour = `git push` ; le service
+  worker « réseau d'abord » la fait arriver toute seule sur les appareils.
