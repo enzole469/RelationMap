@@ -1,22 +1,27 @@
 // Dessin de la carte interactive avec la bibliothèque D3.
 
-// Réglages de taille
-const ECART_CERCLES = 130; // largeur d'un disque de proximité
-const RAYON_BULLE = 22;    // taille d'une bulle de relation
-const RAYON_MOI = 34;      // taille de la bulle centrale
-const MARGE = 6;           // petit espace entre une bulle et le bord de son disque
+// Réglages de taille, par niveau (Intime, Proche, Ami, Connaissance).
+// Les disques s'élargissent vers l'extérieur, où il y a le plus de monde,
+// et les bulles rapetissent avec l'éloignement.
+const LARGEUR_DISQUE = [140, 170, 200, 230]; // largeur de chaque disque
+const TAILLE_BULLE   = [22, 18, 15, 12];     // rayon des bulles de ce niveau
+const TAILLE_TEXTE   = [13, 12, 11, 11];     // taille minimale du nom à l'écran
+const RAYON_MOI = 34; // taille de la bulle centrale
+const MARGE = 6;      // petit espace entre une bulle et le bord de son disque
 
-// Bord extérieur du disque d'un niveau (niveau 1 = 130, niveau 2 = 260, ...)
-const rayonDuCercle = (niveau) => niveau * ECART_CERCLES;
+// Bord extérieur du disque d'un niveau (somme des largeurs jusqu'à lui).
+const rayonDuCercle = (niveau) => d3.sum(LARGEUR_DISQUE.slice(0, niveau));
 const couleurDuCercle = (niveau) => CERCLES.find((c) => c.niveau === niveau).couleur;
+const rayonBulle = (r) => TAILLE_BULLE[r.cercle - 1];
 
 // Distance au centre minimale et maximale pour le centre d'une bulle
 // d'un niveau donné, pour qu'elle reste entièrement dans son disque.
 function limitesDuDisque(niveau) {
   const interieur = niveau === 1 ? RAYON_MOI + MARGE : rayonDuCercle(niveau - 1);
+  const rayon = TAILLE_BULLE[niveau - 1];
   return {
-    min: interieur + RAYON_BULLE + MARGE,
-    max: rayonDuCercle(niveau) - RAYON_BULLE - MARGE,
+    min: interieur + rayon + MARGE,
+    max: rayonDuCercle(niveau) - rayon - MARGE,
   };
 }
 
@@ -55,7 +60,10 @@ const monde = svg.append("g");
 svg.call(
   d3.zoom()
     .scaleExtent([0.4, 4]) // zoom minimum et maximum
-    .on("zoom", (evenement) => monde.attr("transform", evenement.transform))
+    .on("zoom", (evenement) => {
+      monde.attr("transform", evenement.transform);
+      ajusterTailleDesNoms();
+    })
 );
 
 // --- Les disques de proximité ---------------------------------------------
@@ -236,7 +244,7 @@ const simulation = d3.forceSimulation()
   .force("disque", forceDisque)
   .force("liens", forceLiens)
   .force("groupes", forceGroupes)
-  .force("ecart", d3.forceCollide(RAYON_BULLE + 14))
+  .force("ecart", d3.forceCollide((r) => rayonBulle(r) + 12))
   .on("tick", mettreAJourPositions)
   .on("end", sauvegarder); // les bulles se sont arrêtées : on garde leur place
 
@@ -253,7 +261,8 @@ let bulleVisee = null;
 // suffise d'arriver à peu près dessus.
 function bulleSousLePointeur(x, y, deplacee) {
   return relations.find(
-    (r) => r !== deplacee && Math.hypot(r.x - x, r.y - y) < RAYON_BULLE * 1.8
+    (r) => r !== deplacee &&
+      Math.hypot(r.x - x, r.y - y) < Math.max(rayonBulle(r) * 1.8, 26)
   ) || null;
 }
 
@@ -347,13 +356,17 @@ function dessinerCarte() {
           evenement.stopPropagation();
           quandOnCliqueUneBulle(r);
         });
-      nouvelle.append("circle").attr("r", RAYON_BULLE);
-      nouvelle.append("text").attr("y", RAYON_BULLE + 16);
+      nouvelle.append("circle");
+      nouvelle.append("text");
       return nouvelle;
     });
 
-  bulles.select("circle").attr("fill", (r) => couleurDuCercle(r.cercle));
+  // Taille, couleur et nom selon le niveau (qui peut avoir changé).
+  bulles.select("circle")
+    .attr("r", rayonBulle)
+    .attr("fill", (r) => couleurDuCercle(r.cercle));
   bulles.select("text").text((r) => r.nom);
+  ajusterTailleDesNoms();
 
   afficherSelection();
   mettreAJourPositions();
@@ -384,6 +397,21 @@ function dessinerCarte() {
   // Chaque changement passe par ici : c'est donc ici qu'on sauvegarde.
   sauvegarder();
 }
+
+// Les noms gardent une taille lisible à l'écran : quand la carte est réduite
+// pour tenir dans la fenêtre (ou dézoomée), ils ne rapetissent pas avec
+// elle ; quand on zoome, ils grossissent normalement.
+function ajusterTailleDesNoms() {
+  const matrice = monde.node().getScreenCTM();
+  const echelle = matrice ? matrice.a : 1; // pixels à l'écran par unité de carte
+  const compensation = echelle < 1 ? 1 / echelle : 1;
+  bulles.select("text")
+    .style("font-size", (r) => TAILLE_TEXTE[r.cercle - 1] * compensation + "px")
+    .attr("y", (r) => rayonBulle(r) + TAILLE_TEXTE[r.cercle - 1] * compensation + 2);
+  moi.select("text").style("font-size", 13 * compensation + "px");
+}
+
+window.addEventListener("resize", ajusterTailleDesNoms);
 
 // Met en évidence des bulles et/ou un lien (listes vides / null = rien).
 function selectionner(idsBulles = [], idLien = null) {

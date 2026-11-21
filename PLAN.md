@@ -99,3 +99,8 @@ téléphone, puis mise en ligne (avec accord) et test sur Android.
   suffisant pour ce volume). Les exemples fictifs sont retirés de l'app et
   déplacés dans `tests/exemples.js`. Panneau « Sauvegarde » pour exporter /
   importer.
+- 2026-11-21 : lisibilité. Disques plus larges et de plus en plus larges vers
+  l'extérieur (140/170/200/230), bulles plus petites avec l'éloignement
+  (22/18/15/12), noms gardant une taille minimale lisible à l'écran quel que
+  soit le zoom. Réglages `LARGEUR_DISQUE`, `TAILLE_BULLE`, `TAILLE_TEXTE`
+  dans `js/carte.js`.
