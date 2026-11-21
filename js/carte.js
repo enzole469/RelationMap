@@ -27,7 +27,13 @@ const MARGE = 6;      // petit espace entre une bulle et le bord de son disque
 // Bord extérieur du disque d'un niveau (somme des largeurs jusqu'à lui).
 const rayonDuCercle = (niveau) => d3.sum(LARGEUR_DISQUE.slice(0, niveau));
 const couleurDuCercle = (niveau) => CERCLES.find((c) => c.niveau === niveau).couleur;
-const rayonBulle = (r) => TAILLE_BULLE[r.cercle - 1];
+// Taille d'une bulle : selon le niveau pour une personne, selon le nombre
+// de membres pour un groupe replié.
+const RAYON_GROUPE = (nombre) => 24 + 7 * Math.sqrt(nombre);
+const TAILLE_TEXTE_GROUPE = 13;
+const estGroupe = (n) => n.type === "groupe";
+const rayonBulle = (n) => (estGroupe(n) ? RAYON_GROUPE(n.groupe.membres.length) : TAILLE_BULLE[n.cercle - 1]);
+const tailleTexte = (n) => (estGroupe(n) ? TAILLE_TEXTE_GROUPE : TAILLE_TEXTE[n.cercle - 1]);
 
 const estLeDernierNiveau = (niveau) => niveau === CERCLES.length;
 
@@ -106,7 +112,7 @@ svg.call(zoom);
 // Vue d'ensemble : centrée sur "moi", assez large pour voir toutes les
 // bulles, y compris les connaissances les plus lointaines.
 function recentrer() {
-  const plusLoin = d3.max(relations, (r) => Math.hypot(r.x, r.y)) || 0;
+  const plusLoin = d3.max(noeuds, (r) => Math.hypot(r.x, r.y)) || 0;
   const rayonAVoir = Math.max(rayonDuCercle(CERCLES.length), plusLoin + 60);
   const echelle = Math.min(1, (tailleVue / 2) / (rayonAVoir + 40));
   svg.transition().duration(600)
@@ -125,7 +131,8 @@ function cadrerPersonne(r, obstacle = null) {
   // (sauf les liens masqués par les filtres).
   const voisins = liens
     .filter((l) => !typesMasques.has(l.type) && (l.de === r.id || l.vers === r.id))
-    .map((l) => relationsParId.get(l.de === r.id ? l.vers : l.de));
+    .map((l) => noeudVisibleDe(l.de === r.id ? l.vers : l.de))
+    .filter(Boolean);
   const points = [{ x: 0, y: 0 }, r, ...voisins];
 
   // Zone visible de la carte à l'écran, sans la partie cachée par le
@@ -227,13 +234,152 @@ moi.append("text").text("Moi");
 
 // --- Les calques : les liens sont dessinés sous les bulles ----------------
 
+const calqueHalos = monde.append("g");
 const calqueLiens = monde.append("g");
 const calqueBulles = monde.append("g");
+let halos = calqueHalos.selectAll("g.halo");
 let traits = calqueLiens.selectAll("g.lien");
 let bulles = calqueBulles.selectAll("g.bulle");
 
 // Pour retrouver vite une relation à partir de son identifiant.
 let relationsParId = new Map();
+
+// --- Ce qui est affiché : personnes et groupes repliés ------------------------
+//
+// Un groupe (voir groupes.js) est affiché soit "replié" (une grosse bulle à
+// son nom), soit "ouvert" (ses membres, entourés d'un halo à son nom).
+// Les "noeuds" sont tout ce qui est dessiné et bouge sur la carte : les
+// personnes visibles et les bulles des groupes repliés.
+const groupesOuverts = new Set();     // identifiants des groupes ouverts
+const noeudsGroupes = new Map();      // id de groupe -> sa bulle (si replié)
+let noeuds = [];                      // ce qui est affiché et animé
+let noeudsParId = new Map();
+let traitsVisibles = [];              // liens affichés (dont liens regroupés)
+let unitesVisibles = [];              // paquets pour la répartition
+
+// Le groupe replié qui cache une personne (ou null si elle est visible).
+function groupeReplie(idRelation) {
+  const g = groupeDePersonne.get(idRelation);
+  return g && !groupesOuverts.has(g.id) ? g : null;
+}
+
+// Ce qui représente une personne à l'écran : elle-même, ou la bulle de
+// son groupe s'il est replié.
+function noeudVisibleDe(idRelation) {
+  const g = groupeReplie(idRelation);
+  return g ? noeudsGroupes.get(g.id) : relationsParId.get(idRelation);
+}
+
+const centreDe = (liste) => ({ x: d3.mean(liste, (n) => n.x), y: d3.mean(liste, (n) => n.y) });
+
+// Construit la liste de ce qui est affiché, à partir des groupes calculés.
+function construireNoeuds() {
+  // Les groupes disparus ne sont plus ouverts ni repliés.
+  const existants = new Set(groupesActuels.map((g) => g.id));
+  for (const id of [...groupesOuverts]) if (!existants.has(id)) groupesOuverts.delete(id);
+  for (const id of [...noeudsGroupes.keys()]) {
+    if (!existants.has(id) || groupesOuverts.has(id)) noeudsGroupes.delete(id);
+  }
+
+  // Une bulle par groupe replié, placée au centre de ses membres, à leur
+  // distance moyenne de "moi".
+  for (const g of groupesActuels) {
+    if (groupesOuverts.has(g.id)) continue;
+    let n = noeudsGroupes.get(g.id);
+    if (!n) {
+      n = { id: g.id, type: "groupe", ...centreDe(g.membres) };
+      noeudsGroupes.set(g.id, n);
+    }
+    n.groupe = g;
+    n.nom = g.nom;
+    // (jamais par-dessus "moi", même pour un groupe d'intimes)
+    n.distanceCible = Math.max(d3.mean(g.membres, (r) => Math.hypot(r.x, r.y)),
+      RAYON_MOI + RAYON_GROUPE(g.membres.length) + 2 * MARGE);
+    n.cercle = niveauALaDistance(n.distanceCible);
+  }
+
+  noeuds = relations.filter((r) => !groupeReplie(r.id)).concat([...noeudsGroupes.values()]);
+  noeudsParId = new Map(noeuds.map((n) => [n.id, n]));
+
+  // Les liens : ceux entre deux personnes visibles sont affichés tels quels ;
+  // ceux qui touchent un groupe replié sont regroupés en un seul trait
+  // (plus épais s'il y a beaucoup de liens).
+  traitsVisibles = [];
+  const regroupes = new Map();
+  for (const l of liens) {
+    const a = noeudVisibleDe(l.de), b = noeudVisibleDe(l.vers);
+    if (!a || !b || a === b) continue; // lien interne à un groupe replié
+    if (!estGroupe(a) && !estGroupe(b)) {
+      traitsVisibles.push({ id: l.id, de: a.id, vers: b.id, type: l.type, lien: l });
+      continue;
+    }
+    const [p, q] = [a.id, b.id].sort();
+    const cle = "regroupe:" + p + "|" + q;
+    if (!regroupes.has(cle)) regroupes.set(cle, { id: cle, de: p, vers: q, regroupe: true, nombre: 0, poids: 0 });
+    const t = regroupes.get(cle);
+    t.nombre += 1;
+    t.poids += poidsLien(l);
+  }
+  traitsVisibles.push(...regroupes.values());
+
+  // Les paquets pour la répartition autour du cercle (un groupe replié = sa
+  // seule bulle, mais il garde le poids de tous ses membres).
+  unitesVisibles = unites.map((u) => ({
+    noeuds: [...new Set(u.map((r) => noeudVisibleDe(r.id)))],
+    poids: u.length,
+  }));
+}
+
+// Recale les membres d'un groupe replié sur sa bulle (qui a pu bouger), en
+// gardant leur disposition : utile avant d'ouvrir le groupe ou d'enregistrer.
+function recalerMembres(n) {
+  const c = centreDe(n.groupe.membres);
+  const dx = n.x - c.x, dy = n.y - c.y;
+  for (const r of n.groupe.membres) { r.x += dx; r.y += dy; }
+}
+
+// Enregistre (en recalant d'abord les membres des groupes repliés).
+function enregistrer() {
+  for (const n of noeudsGroupes.values()) recalerMembres(n);
+  sauvegarder();
+}
+
+function ouvrirGroupe(id) {
+  if (groupesOuverts.has(id)) return;
+  const n = noeudsGroupes.get(id);
+  if (n) {
+    recalerMembres(n);
+    espacerMembres(n.groupe.membres);
+  }
+  groupesOuverts.add(id);
+  dessinerCarte();
+}
+
+// À l'ouverture d'un groupe, ses membres trop serrés sont écartés autour de
+// leur centre, pour que les noms soient lisibles tout de suite.
+function espacerMembres(membres) {
+  const c = centreDe(membres);
+  const place = d3.sum(membres, (r) => 2 * rayonAvecNom(r));   // tour nécessaire
+  const rayonVoulu = Math.max(1.4 * place / (2 * Math.PI), 50);
+  const rayonActuel = d3.mean(membres, (r) => Math.hypot(r.x - c.x, r.y - c.y)) || 0;
+  if (rayonActuel >= rayonVoulu * 0.8) return; // déjà assez espacés
+  // on garde l'ordre autour du centre, et on les place sur un cercle
+  membres.slice()
+    .sort((a, b) => Math.atan2(a.y - c.y, a.x - c.x) - Math.atan2(b.y - c.y, b.x - c.x))
+    .forEach((r, k) => {
+      const a = (2 * Math.PI * k) / membres.length;
+      r.x = c.x + Math.cos(a) * rayonVoulu;
+      r.y = c.y + Math.sin(a) * rayonVoulu;
+      r.vx = 0;
+      r.vy = 0;
+    });
+}
+
+function replierGroupe(id) {
+  if (!groupesOuverts.has(id)) return;
+  groupesOuverts.delete(id);
+  dessinerCarte();
+}
 
 // Ce qui est mis en évidence (bulles et/ou lien dont le panneau est ouvert).
 let bullesSelectionnees = [];
@@ -243,13 +389,22 @@ let lienSelectionne = null;
 let quandOnCliqueUneBulle = () => {};
 let quandOnCliqueUnLien = () => {};
 let quandOnRelieDeuxBulles = () => {};
+let quandOnCliqueUnGroupe = () => {};
 
 // --- La "physique" qui place les bulles -----------------------------------
 
 // Règle maison : une bulle sortie de son disque y est ramenée doucement.
 // À l'intérieur du disque, elle reste libre là où on la pose.
+// Les bulles de groupe sont ramenées vers la distance moyenne de leurs membres.
 function forceDisque() {
-  for (const r of relations) {
+  for (const r of noeuds) {
+    if (estGroupe(r)) {
+      const distance = Math.hypot(r.x, r.y) || 1;
+      const traction = ((distance - r.distanceCible) / distance) * 0.05;
+      r.vx -= r.x * traction;
+      r.vy -= r.y * traction;
+      continue;
+    }
     const { min, max } = limitesDuDisque(r.cercle);
     const distance = Math.hypot(r.x, r.y) || 1;
     let cible = null;
@@ -267,10 +422,17 @@ function forceDisque() {
 function mettreAJourPositions() {
   bulles.attr("transform", (r) => `translate(${r.x},${r.y})`);
   traits.selectAll("line")
-    .attr("x1", (l) => relationsParId.get(l.de).x)
-    .attr("y1", (l) => relationsParId.get(l.de).y)
-    .attr("x2", (l) => relationsParId.get(l.vers).x)
-    .attr("y2", (l) => relationsParId.get(l.vers).y);
+    .attr("x1", (l) => noeudsParId.get(l.de).x)
+    .attr("y1", (l) => noeudsParId.get(l.de).y)
+    .attr("x2", (l) => noeudsParId.get(l.vers).x)
+    .attr("y2", (l) => noeudsParId.get(l.vers).y);
+  // Halo autour des membres de chaque groupe ouvert
+  halos.each(function (g) {
+    const c = centreDe(g.membres);
+    const rayon = d3.max(g.membres, (r) => Math.hypot(r.x - c.x, r.y - c.y) + rayonBulle(r)) + 18;
+    d3.select(this).select("circle").attr("cx", c.x).attr("cy", c.y).attr("r", rayon);
+    d3.select(this).select("text").attr("x", c.x).attr("y", c.y - rayon - 6);
+  });
 }
 
 // --- La répartition des groupes ---------------------------------------------
@@ -299,16 +461,15 @@ function ecartAngle(a, b) {
 }
 
 function forceGroupes(alpha) {
-  if (unites.length < 2) return;
-  const total = d3.sum(unites, (u) => u.length);
+  if (unitesVisibles.length < 2) return;
+  const total = d3.sum(unitesVisibles, (u) => u.poids);
 
   // Centre de chaque paquet (moyenne des positions de ses membres), sa
   // direction vue depuis "moi" (son angle) et sa part du tour.
-  const centres = unites.map((membres) => {
-    const x = d3.mean(membres, (r) => r.x);
-    const y = d3.mean(membres, (r) => r.y);
+  const centres = unitesVisibles.map((u) => {
+    const { x, y } = centreDe(u.noeuds);
     return { x, y, angle: Math.atan2(y, x), distance: Math.hypot(x, y) || 1,
-             part: (2 * Math.PI * membres.length) / total };
+             part: (2 * Math.PI * u.poids) / total };
   });
 
   centres.forEach((centre, i) => {
@@ -332,7 +493,7 @@ function forceGroupes(alpha) {
     // à la direction de "moi"), sans le rapprocher ni l'éloigner du centre.
     const tx = -centre.y / centre.distance;
     const ty = centre.x / centre.distance;
-    for (const r of unites[i]) {
+    for (const r of unitesVisibles[i].noeuds) {
       r.vx += tx * poussee;
       r.vy += ty * poussee;
     }
@@ -395,10 +556,20 @@ function ranger() {
     }
     angle += part;
   }
+  replacerBullesDeGroupes();
   mettreAJourPositions();
-  simulation.alpha(0.4).restart();
+  relancerAnimation(0.4);
   sauvegarder();
   return anciennes;
+}
+
+// Place chaque bulle de groupe replié au centre de ses membres.
+function replacerBullesDeGroupes() {
+  for (const n of noeudsGroupes.values()) {
+    Object.assign(n, centreDe(n.groupe.membres));
+    n.vx = 0;
+    n.vy = 0;
+  }
 }
 
 // Remet les positions d'avant un rangement.
@@ -407,18 +578,20 @@ function annulerRangement(anciennes) {
     const r = relationsParId.get(p.id);
     if (r) { r.x = p.x; r.y = p.y; r.vx = 0; r.vy = 0; }
   }
+  replacerBullesDeGroupes();
   mettreAJourPositions();
-  simulation.alpha(0.2).restart();
+  relancerAnimation(0.2);
   sauvegarder();
 }
 
 // --- Les liens ----------------------------------------------------------------
 
 // Les bulles reliées s'attirent, plus ou moins selon le type de lien.
+// Un trait regroupé (vers un groupe replié) attire doucement.
 const forceLiens = d3.forceLink()
   .id((r) => r.id)
-  .distance((l) => typeDeLien(l.type).distance)
-  .strength((l) => typeDeLien(l.type).attraction);
+  .distance((l) => (l.regroupe ? rayonBulle(l.source) + rayonBulle(l.target) + 70 : typeDeLien(l.type).distance))
+  .strength((l) => (l.regroupe ? 0.08 : typeDeLien(l.type).attraction));
 
 // Quatre règles : chaque bulle reste dans son disque (la plus forte),
 // les bulles reliées se rapprochent, les groupes s'écartent les uns des
@@ -432,7 +605,7 @@ const simulation = d3.forceSimulation()
   .force("groupes", forceGroupes)
   .force("ecart", d3.forceCollide(rayonAvecNom))
   .on("tick", mettreAJourPositions)
-  .on("end", sauvegarder); // les bulles se sont arrêtées : on garde leur place
+  .on("end", enregistrer); // les bulles se sont arrêtées : on garde leur place
 
 // --- Faire glisser une bulle ----------------------------------------------
 
@@ -482,12 +655,15 @@ function niveauALaDistance(distance) {
 // pour viser facilement au doigt sur une carte très réduite.
 function bulleSousLePointeur(x, y, deplacee) {
   const tolerance = (r) => Math.max(rayonBulle(r) * 1.8, 26, 28 / echelleEcran());
-  return relations.find(
-    (r) => r !== deplacee && Math.hypot(r.x - x, r.y - y) < tolerance(r)
+  return noeuds.find(
+    (r) => !estGroupe(r) && r !== deplacee && Math.hypot(r.x - x, r.y - y) < tolerance(r)
   ) || null;
 }
 
 const glisser = d3.drag()
+  // En mode édition, les bulles de groupe ne se déplacent pas (il faut
+  // ouvrir le groupe pour modifier ses membres).
+  .filter((evenement, n) => !evenement.ctrlKey && !evenement.button && !(estGroupe(n) && modeEdition))
   .on("start", (evenement, r) => {
     // L'animation est relancée pour que les autres bulles s'écartent
     // pendant qu'on déplace celle-ci (inutile en mode Liens : rien ne bouge).
@@ -534,7 +710,7 @@ const glisser = d3.drag()
       mettreEnAvantAnneau(null);
       if (niveau !== r.cercle) quandOnChangeDeDisque(r, niveau);
     }
-    sauvegarder();
+    enregistrer();
   });
 
 // Le trait provisoire qui suit le pointeur en mode Liens. Son style est
@@ -574,65 +750,97 @@ function dessinerCarte() {
     if (r.x === undefined) placerDansSonDisque(r);
   }
   relationsParId = new Map(relations.map((r) => [r.id, r]));
+  calculerGroupes();
+  construireNoeuds();
 
   // Les traits : une ligne large et invisible pour cliquer facilement,
-  // et la ligne visible par-dessus.
+  // et la ligne visible par-dessus. Un trait regroupé (vers un groupe
+  // replié) est gris, plus épais s'il représente beaucoup de liens.
   traits = calqueLiens
     .selectAll("g.lien")
-    .data(liens, (l) => l.id)
+    .data(traitsVisibles, (l) => l.id)
     .join((entree) => {
       const nouveau = entree.append("g")
         .attr("class", "lien")
         .on("click", (evenement, l) => {
           evenement.stopPropagation();
-          quandOnCliqueUnLien(l);
+          if (l.regroupe) {
+            const n = [noeudsParId.get(l.de), noeudsParId.get(l.vers)].find(estGroupe);
+            if (n) quandOnCliqueUnGroupe(n.groupe);
+          } else {
+            quandOnCliqueUnLien(l.lien);
+          }
         });
       nouveau.append("line").attr("class", "lien-zone");
       nouveau.append("line").attr("class", "lien-trait");
       return nouveau;
     });
 
+  traits.classed("lien-regroupe", (l) => Boolean(l.regroupe));
   traits.select(".lien-trait")
-    .attr("stroke", (l) => typeDeLien(l.type).couleur)
-    .attr("stroke-width", (l) => typeDeLien(l.type).epaisseur)
-    .attr("stroke-dasharray", (l) => typeDeLien(l.type).pointilles);
+    .attr("stroke", (l) => (l.regroupe ? "#6c6f7f" : typeDeLien(l.type).couleur))
+    .attr("stroke-width", (l) => (l.regroupe ? 1.5 + Math.log2(l.nombre) : typeDeLien(l.type).epaisseur))
+    .attr("stroke-dasharray", (l) => (l.regroupe ? null : typeDeLien(l.type).pointilles));
 
-  // Les bulles
+  // Les bulles : personnes visibles et groupes repliés
   bulles = calqueBulles
     .selectAll("g.bulle")
-    .data(relations, (r) => r.id)
+    .data(noeuds, (r) => r.id)
     .join((entree) => {
       const nouvelle = entree.append("g")
         .attr("class", "bulle")
         .call(glisser)
         .on("click", (evenement, r) => {
           evenement.stopPropagation();
-          quandOnCliqueUneBulle(r);
+          if (estGroupe(r)) quandOnCliqueUnGroupe(r.groupe);
+          else quandOnCliqueUneBulle(r);
         });
       nouvelle.append("circle").attr("class", "disque");
       nouvelle.append("circle").attr("class", "zone-tactile");
-      nouvelle.append("text");
+      nouvelle.append("text").attr("class", "nom");
+      nouvelle.append("text").attr("class", "compte");
       return nouvelle;
     });
 
-  // Couleur et nom selon le niveau (qui peut avoir changé) ; les tailles
-  // dépendent aussi du zoom, elles sont réglées par ajusterAuZoom().
-  bulles.select(".disque").attr("fill", (r) => couleurDuCercle(r.cercle));
-  bulles.select("text").text((r) => r.nom);
+  // Couleur et nom (qui peuvent avoir changé) ; les tailles dépendent aussi
+  // du zoom, elles sont réglées par ajusterAuZoom().
+  bulles.classed("bulle-groupe", estGroupe);
+  bulles.select(".disque")
+    .attr("fill", (r) => (estGroupe(r) ? "#ffffff" : couleurDuCercle(r.cercle)))
+    .style("stroke", (r) => (estGroupe(r) ? couleurDuCercle(r.cercle) : null));
+  bulles.select("text.nom").text((r) => r.nom);
+  bulles.select("text.compte").text((r) => (estGroupe(r) ? r.groupe.membres.length : ""));
+
+  // Un halo à son nom autour des membres de chaque groupe ouvert ; un clic
+  // dessus ouvre le panneau du groupe.
+  halos = calqueHalos
+    .selectAll("g.halo")
+    .data(groupesActuels.filter((g) => groupesOuverts.has(g.id)), (g) => g.id)
+    .join((entree) => {
+      const nouveau = entree.append("g")
+        .attr("class", "halo")
+        .on("click", (evenement, g) => {
+          evenement.stopPropagation();
+          quandOnCliqueUnGroupe(g);
+        });
+      nouveau.append("circle");
+      nouveau.append("text");
+      return nouveau;
+    });
+  halos.select("text").text((g) => g.nom);
   ajusterAuZoom();
 
   afficherSelection();
   afficherFiltres();
   afficherRecherche();
   mettreAJourPositions();
-  simulation.nodes(relations);
-  calculerGroupes();
+  simulation.nodes(noeuds);
   // D3 transforme les liens qu'on lui donne : on lui passe donc des copies,
   // sans les liens "se détestent" qui n'attirent pas.
   forceLiens.links(
-    liens
-      .filter((l) => typeDeLien(l.type).attraction > 0)
-      .map((l) => ({ source: l.de, target: l.vers, type: l.type }))
+    traitsVisibles
+      .filter((l) => (l.regroupe ? l.poids > 0 : typeDeLien(l.type).attraction > 0))
+      .map((l) => ({ source: l.de, target: l.vers, type: l.type, regroupe: l.regroupe }))
   );
   relancerAnimation(0.5);
 
@@ -650,7 +858,7 @@ function dessinerCarte() {
   }
 
   // Chaque changement passe par ici : c'est donc ici qu'on sauvegarde.
-  sauvegarder();
+  enregistrer();
 }
 
 // Les noms gardent une taille lisible à l'écran : quand la carte est réduite
@@ -673,14 +881,17 @@ function ajusterAuZoom() {
   const echelle = echelleEcran();
   const agrandissement = echelle < 1 ? 1 / echelle : 1;
   const rayonAffiche = (r) => Math.max(rayonBulle(r), RAYON_MIN_BULLE_ECRAN / echelle);
-  const tailleNom = (r) => TAILLE_TEXTE[r.cercle - 1] * agrandissement;
+  const tailleNom = (r) => tailleTexte(r) * agrandissement;
 
   bulles.select(".disque").attr("r", rayonAffiche);
   bulles.select(".zone-tactile").attr("r", (r) => Math.max(rayonAffiche(r), ZONE_TACTILE_ECRAN / echelle));
-  bulles.select("text")
+  bulles.select("text.nom")
     .style("font-size", (r) => tailleNom(r) + "px")
     .attr("y", (r) => rayonAffiche(r) + tailleNom(r) + 2);
-  bulles.classed("nom-cache", (r) => r.cercle > 2 && agrandissement > SEUIL_NOMS_LOINTAINS);
+  // le nombre de membres, au centre des bulles de groupe
+  bulles.select("text.compte").style("font-size", 12 * agrandissement + "px");
+  bulles.classed("nom-cache", (r) => !estGroupe(r) && r.cercle > 2 && agrandissement > SEUIL_NOMS_LOINTAINS);
+  halos.select("text").style("font-size", 13 * agrandissement + "px");
   moi.select("text").style("font-size", 13 * agrandissement + "px");
   moi.select("circle").attr("r", Math.max(RAYON_MOI, 18 / echelle));
 }
@@ -691,7 +902,7 @@ function ajusterAuZoom() {
 // Calculée pour un écran de référence : la disposition est la même sur
 // ordinateur et sur téléphone.
 function rayonAvecNom(r) {
-  const hauteurNom = TAILLE_TEXTE[r.cercle - 1] * AGRANDISSEMENT_REFERENCE;
+  const hauteurNom = tailleTexte(r) * AGRANDISSEMENT_REFERENCE;
   const largeurNom = r.nom.length * hauteurNom * 0.55;
   return Math.max(rayonBulle(r) + hauteurNom * 0.65 + 2, largeurNom / 2 + 3);
 }
@@ -731,7 +942,9 @@ function afficherSelection() {
     }
   }
 
-  bulles.classed("estompee", (r) => focus && !nettes.has(r.id));
+  // (une personne cachée dans un groupe replié est représentée par sa bulle)
+  const nettesVisibles = new Set([...nettes].map((id) => (noeudVisibleDe(id) || {}).id));
+  bulles.classed("estompee", (r) => focus && !nettesVisibles.has(r.id));
   traits.classed("estompe", (l) => focus && !lienNet(l));
   svg.classed("focus", focus);
 }
@@ -765,7 +978,7 @@ function rechercher(texte) {
 
 function afficherRecherche() {
   const active = texteRecherche !== "";
-  const trouvees = new Set(resultatsRecherche(texteRecherche).map((r) => r.id));
+  const trouvees = new Set(resultatsRecherche(texteRecherche).map((r) => (noeudVisibleDe(r.id) || r).id));
   bulles.classed("hors-recherche", (r) => active && !trouvees.has(r.id));
   traits.classed("hors-recherche", active);
   svg.classed("recherche", active);
@@ -774,7 +987,7 @@ function afficherRecherche() {
 // Quand on quitte la page ou qu'on change d'application (sur téléphone),
 // on enregistre la position actuelle des bulles.
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "hidden") sauvegarder();
+  if (document.visibilityState === "hidden") enregistrer();
 });
 
 // Au démarrage, si les bulles ont une place enregistrée, la carte reprend

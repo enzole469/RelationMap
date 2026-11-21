@@ -61,6 +61,9 @@ supplémentaires sur les personnes) ou une des questions en suspens.
 ## Questions en suspens
 
 - Afficher la liste des liens d'une personne dans sa fiche ?
+- Groupes : régler la finesse de la détection si les groupes trouvés sont
+  trop gros ou trop petits sur les vraies données. Sur téléphone, en vue
+  d'ensemble, le nom d'un groupe d'intimes peut toucher « Moi ».
 - À l'étape 5 : les données saisies en local (`index.html` ouvert par
   double-clic) ne seront pas visibles sur la version en ligne. Il faudra
   exporter puis importer une fois lors du passage à la version en ligne.
@@ -136,3 +139,19 @@ supplémentaires sur les personnes) ou une des questions en suspens.
   édition, glisser une bulle la déplace seulement (plus de lien créé par
   accident) ; toucher une bulle ou un trait ouvre toujours son panneau.
   Validé par l'utilisateur sur ordinateur et sur Android.
+- 2026-11-22 : groupes. Détection automatique (méthode de Louvain, poids :
+  couple 3, amis 2, se connaissent 1, se détestent 0) : un simple pont ne
+  fusionne pas deux groupes. Un groupe = au moins 3 personnes. Nom
+  automatique (« Groupe de … », personne la plus connectée), renommable ;
+  une personne peut être placée à la main dans un groupe ou hors groupe
+  (fiche). Un groupe est replié par défaut en une grosse bulle (nombre de
+  membres, liens vers l'extérieur regroupés en un trait gris), placée à la
+  distance moyenne de ses membres ; un clic l'ouvre (membres dans un halo à
+  son nom) et affiche son panneau (renommer, replier, membres).
+- 2026-11-22 : bouton « Ranger » (parts de gâteau proportionnelles à la
+  taille des groupes, groupes liés côte à côte, « Annuler » possible).
+- 2026-11-22 : mode Liens : un trait suit le pointeur (la bulle ne bouge
+  plus) et la carte reste immobile pendant l'édition des liens. Hors mode
+  Liens, glisser une bulle ne fige plus les autres.
+- Format des données version 2 (groupes) ; les fichiers version 1 restent
+  acceptés à l'import.

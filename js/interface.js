@@ -3,6 +3,7 @@
 const panneau = document.getElementById("panneau");
 const vueRelation = document.getElementById("vue-relation");
 const vueLien = document.getElementById("vue-lien");
+const vueGroupe = document.getElementById("vue-groupe");
 
 // ===========================================================================
 // Vue 1 : une relation
@@ -36,12 +37,36 @@ document.getElementById("choix-niveau").addEventListener("change", () => {
   mettreEnAvantAnneau(Number(formulaireRelation.elements.niveau.value));
 });
 
+// Le choix du groupe dans la fiche : automatique (par défaut), un groupe
+// précis, ou aucun groupe.
+const choixGroupe = document.getElementById("choix-groupe");
+
+function remplirChoixGroupe(relation) {
+  const actuel = relation ? groupeDePersonne.get(relation.id) : null;
+  const auto = relation && !relation.groupe && actuel ? `Automatique (actuellement : ${actuel.nom})` : "Automatique";
+  // les groupes affichés, puis les groupes nommés qui n'ont plus assez de membres
+  const connus = groupesActuels.concat(groupesConnus.filter((g) =>
+    g.nomChoisi && !groupesActuels.some((a) => a.id === g.id)));
+  choixGroupe.innerHTML = "";
+  const option = (valeur, texte) => {
+    const o = document.createElement("option");
+    o.value = valeur;
+    o.textContent = texte; // texte simple : un nom de groupe ne peut pas injecter de code
+    choixGroupe.append(o);
+  };
+  option("auto", auto);
+  for (const g of connus) option(g.id, g.nom);
+  option("aucun", "Aucun groupe");
+  choixGroupe.value = relation && relation.groupe ? relation.groupe : "auto";
+}
+
 function ouvrirPourAjouter() {
   relationOuverte = null;
   titreRelation.textContent = "Nouvelle relation";
   validerRelation.textContent = "Ajouter";
   champNom.value = "";
   choisirNiveau(3);
+  remplirChoixGroupe(null);
   zoneSuppression.hidden = true;
   selectionner();
   afficherVue(vueRelation);
@@ -54,6 +79,7 @@ function ouvrirPourModifier(relation) {
   validerRelation.textContent = "Enregistrer";
   champNom.value = relation.nom;
   choisirNiveau(relation.cercle);
+  remplirChoixGroupe(relation);
   zoneSuppression.hidden = false;
   boutonSupprimer.hidden = false;
   confirmation.hidden = true;
@@ -70,14 +96,17 @@ formulaireRelation.addEventListener("submit", (evenement) => {
     return;
   }
 
+  const groupe = choixGroupe.value === "auto" ? null : choixGroupe.value;
   if (relationOuverte === null) {
-    ajouterRelation(nom, niveau);
+    const nouvelle = ajouterRelation(nom, niveau);
+    if (groupe) placerDansGroupe(nouvelle.id, groupe);
     dessinerCarte();
     // On laisse le panneau ouvert, vide, pour enchaîner les ajouts.
     champNom.value = "";
     champNom.focus();
   } else {
     modifierRelation(relationOuverte.id, nom, niveau);
+    placerDansGroupe(relationOuverte.id, groupe);
     dessinerCarte();
     fermerPanneau();
   }
@@ -264,6 +293,7 @@ function afficherVue(vue) {
   vueRelation.hidden = vue !== vueRelation;
   vueLien.hidden = vue !== vueLien;
   vueSauvegarde.hidden = vue !== vueSauvegarde;
+  vueGroupe.hidden = vue !== vueGroupe;
   panneau.hidden = false;
   // Les anneaux ne sont visibles que pendant l'édition d'une personne
   // (ou en mode édition des disques).
@@ -299,6 +329,80 @@ quandOnCliqueUnLien = (lien) => {
   if (modeEdition === "liens") appliquerOutilLien(a, b);
   else ouvrirLien(a, b);
 };
+
+// ===========================================================================
+// Vue 4 : un groupe
+// ===========================================================================
+
+const titreGroupe = document.getElementById("titre-groupe");
+const champNomGroupe = document.getElementById("champ-nom-groupe");
+const boutonPlierGroupe = document.getElementById("bouton-plier-groupe");
+const membresGroupe = document.getElementById("membres-groupe");
+let idGroupeOuvert = null;
+
+// Clic sur un groupe replié : il s'ouvre (ses membres apparaissent) et son
+// panneau s'affiche. Clic sur le halo d'un groupe ouvert : son panneau.
+// En mode édition, le clic ouvre seulement le groupe, pour pouvoir
+// modifier ses membres.
+quandOnCliqueUnGroupe = (groupe) => {
+  if (modeEdition) {
+    ouvrirGroupe(groupe.id);
+    return;
+  }
+  ouvrirGroupe(groupe.id);
+  ouvrirPanneauGroupe(groupe.id);
+};
+
+function ouvrirPanneauGroupe(id) {
+  const g = groupesActuels.find((x) => x.id === id);
+  if (!g) return fermerPanneau();
+  idGroupeOuvert = id;
+  titreGroupe.textContent = g.nom;
+  champNomGroupe.value = g.nom;
+  document.getElementById("info-groupe").textContent =
+    `${pluriel(g.membres.length, "personne")}. ` +
+    (g.nomChoisi ? "" : "Nom donné automatiquement : vous pouvez le changer.");
+  boutonPlierGroupe.textContent = groupesOuverts.has(id) ? "Replier le groupe" : "Ouvrir le groupe";
+  // les membres, du plus proche au plus lointain ; un clic ouvre leur fiche
+  membresGroupe.innerHTML = "";
+  for (const r of g.membres.slice().sort((a, b) => a.cercle - b.cercle || a.nom.localeCompare(b.nom))) {
+    const b = document.createElement("button");
+    const pastille = document.createElement("span");
+    pastille.className = "pastille";
+    pastille.style.background = couleurDuCercle(r.cercle);
+    b.append(pastille, document.createTextNode(r.nom));
+    b.addEventListener("click", () => {
+      ouvrirGroupe(id);
+      const personne = trouverRelation(r.id);
+      ouvrirPourModifier(personne);
+      cadrerPersonne(personne, panneau.getBoundingClientRect());
+    });
+    membresGroupe.append(b);
+  }
+  selectionner(g.membres.map((r) => r.id));
+  afficherVue(vueGroupe);
+}
+
+document.getElementById("formulaire-groupe").addEventListener("submit", (evenement) => {
+  evenement.preventDefault();
+  const nom = champNomGroupe.value.trim();
+  if (nom === "" || !idGroupeOuvert) return;
+  renommerGroupe(idGroupeOuvert, nom);
+  dessinerCarte();
+  afficherToast(`Groupe renommé : ${nom}.`);
+  ouvrirPanneauGroupe(idGroupeOuvert);
+});
+
+boutonPlierGroupe.addEventListener("click", () => {
+  const id = idGroupeOuvert;
+  if (groupesOuverts.has(id)) {
+    replierGroupe(id);
+    fermerPanneau();
+  } else {
+    ouvrirGroupe(id);
+    ouvrirPanneauGroupe(id);
+  }
+});
 
 // ===========================================================================
 // Mode édition
@@ -436,6 +540,8 @@ champRecherche.addEventListener("keydown", (evenement) => {
     if (!trouvee) return;
     viderRecherche();
     champRecherche.blur();
+    const groupe = groupeReplie(trouvee.id);
+    if (groupe) ouvrirGroupe(groupe.id);
     centrerSur(trouvee);
     ouvrirPourModifier(trouvee);
   } else if (evenement.key === "Escape") {

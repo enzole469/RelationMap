@@ -80,6 +80,9 @@
         <p class="etiquette">Proximité</p>
         <div id="choix-niveau" class="choix-liste"></div>
 
+        <label for="choix-groupe">Groupe</label>
+        <select id="choix-groupe"></select>
+
         <button type="submit" id="valider-relation" class="principal">Ajouter</button>
       </form>
 
@@ -107,6 +110,23 @@
       <div id="zone-suppression-lien" class="zone-bas" hidden>
         <button id="supprimer-lien" class="danger-discret">Supprimer ce lien</button>
       </div>
+    </section>
+
+    <!-- Vue 4 : un groupe (renommer, ouvrir / replier, voir ses membres) -->
+    <section id="vue-groupe" hidden>
+      <h2 id="titre-groupe"></h2>
+      <p id="info-groupe" class="aide"></p>
+
+      <form id="formulaire-groupe">
+        <label for="champ-nom-groupe">Nom du groupe</label>
+        <input id="champ-nom-groupe" type="text" maxlength="40" autocomplete="off" required>
+        <button type="submit" class="principal">Renommer</button>
+      </form>
+
+      <button id="bouton-plier-groupe" class="bouton-large"></button>
+
+      <p class="etiquette">Membres</p>
+      <div id="membres-groupe" class="liste-membres"></div>
     </section>
 
     <!-- Vue 3 : sauvegarde, export et import -->

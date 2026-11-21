@@ -147,9 +147,50 @@ button.filtre-lien.masque {
 /* Noms des niveaux lointains cachés quand la carte est trop réduite pour
    qu'ils soient lisibles (sur téléphone surtout)... sauf ceux mis en avant
    par le mode focus ou par une recherche. */
-.bulle.nom-cache text { display: none; }
-#carte.focus .bulle.nom-cache:not(.estompee) text,
-#carte.recherche .bulle.nom-cache:not(.hors-recherche) text { display: inline; }
+.bulle.nom-cache text.nom { display: none; }
+#carte.focus .bulle.nom-cache:not(.estompee) text.nom,
+#carte.recherche .bulle.nom-cache:not(.hors-recherche) text.nom { display: inline; }
+
+/* --- Groupes ---------------------------------------------------------------- */
+
+/* Groupe replié : grosse bulle blanche au contour coloré, nombre de membres
+   au centre, nom en gras dessous */
+.bulle-groupe .disque {
+  stroke-width: 4;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.15));
+}
+
+.bulle-groupe text.nom { font-weight: 700; }
+
+.bulle text.compte {
+  text-anchor: middle;
+  dominant-baseline: central;
+  font-weight: 700;
+  fill: var(--texte);
+  stroke: none;
+}
+
+/* Trait regroupé (vers un groupe replié) */
+.lien-regroupe .lien-trait { opacity: 0.45; }
+
+/* Groupe ouvert : halo discret autour de ses membres, avec son nom */
+.halo { cursor: pointer; }
+
+.halo circle {
+  fill: rgba(43, 45, 66, 0.035);
+  stroke: rgba(43, 45, 66, 0.25);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 5;
+}
+
+.halo text {
+  text-anchor: middle;
+  font-weight: 700;
+  fill: var(--texte-doux);
+  paint-order: stroke;
+  stroke: var(--fond);
+  stroke-width: 4px;
+}
 
 #carte:active { cursor: grabbing; }
 
@@ -356,7 +397,8 @@ button.fermer {
   color: var(--texte-doux);
 }
 
-#champ-nom {
+#champ-nom,
+#champ-nom-groupe {
   width: 100%;
   padding: 8px 10px;
   margin-bottom: 16px;
@@ -683,3 +725,40 @@ button.outil-effacer.choisi { border-color: #a8321f; background: #fbf0ee; }
 
 /* La barre d'édition reste cachée hors mode édition */
 #barre-edition[hidden] { display: none; }
+
+/* --- Panneau d'un groupe, et choix du groupe dans la fiche ------------------ */
+
+#choix-groupe {
+  width: 100%;
+  padding: 8px 10px;
+  margin-bottom: 20px;
+  font: inherit;
+  border: 1px solid #d6cfc3;
+  border-radius: 8px;
+  background: white;
+}
+
+#formulaire-groupe { margin-bottom: 12px; }
+
+button.bouton-large { width: 100%; margin-bottom: 16px; }
+
+.liste-membres {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.liste-membres button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+.liste-membres .pastille {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
