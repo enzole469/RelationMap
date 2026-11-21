@@ -119,3 +119,7 @@ téléphone, puis mise en ligne (avec accord) et test sur Android.
   « Recentrer » (vue d'ensemble incluant les connaissances lointaines),
   types de liens de la légende cliquables pour les masquer / réafficher
   (affichage seulement, non mémorisé au rechargement).
+- 2026-11-21 : clic sur une bulle : si « moi », la personne ou une de ses
+  relations n'est pas visible (panneau compris), la carte glisse pour
+  centrer l'ensemble, sans changer le zoom ; sinon rien ne bouge
+  (`cadrerPersonne` dans `js/carte.js`).

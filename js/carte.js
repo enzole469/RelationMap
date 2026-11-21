@@ -101,6 +101,56 @@ function recentrer() {
     .call(zoom.transform, d3.zoomIdentity.scale(echelle));
 }
 
+// Fait glisser la carte (sans changer le zoom) pour que "moi", une personne
+// et les personnes qui lui sont reliées soient toutes visibles. Si c'est
+// déjà le cas, rien ne bouge.
+// obstacle : zone de l'écran cachée par le panneau (ou null).
+function cadrerPersonne(r, obstacle = null) {
+  const matrice = svg.node().getScreenCTM();
+  if (!matrice) return;
+
+  // Les points à voir : moi (0, 0), la personne, ses relations
+  // (sauf les liens masqués par les filtres).
+  const voisins = liens
+    .filter((l) => !typesMasques.has(l.type) && (l.de === r.id || l.vers === r.id))
+    .map((l) => relationsParId.get(l.de === r.id ? l.vers : l.de));
+  const points = [{ x: 0, y: 0 }, r, ...voisins];
+
+  // Zone visible de la carte à l'écran, sans la partie cachée par le
+  // panneau (sauf s'il cache presque tout, comme sur un petit écran),
+  // et avec une marge pour que les noms restent lisibles.
+  const cadre = svg.node().getBoundingClientRect();
+  let droite = cadre.right;
+  if (obstacle && obstacle.width > 0 && obstacle.left - cadre.left > cadre.width * 0.4) {
+    droite = Math.min(droite, obstacle.left);
+  }
+  const marge = 40;
+  const zone = {
+    gauche: cadre.left + marge, droite: droite - marge,
+    haut: cadre.top + marge, bas: cadre.bottom - marge,
+  };
+
+  // Position à l'écran de chaque point, avec le zoom actuel.
+  const t = d3.zoomTransform(svg.node());
+  const surEcran = points.map((p) => ({
+    x: matrice.a * t.applyX(p.x) + matrice.e,
+    y: matrice.d * t.applyY(p.y) + matrice.f,
+  }));
+  const toutVisible = surEcran.every((p) =>
+    p.x >= zone.gauche && p.x <= zone.droite && p.y >= zone.haut && p.y <= zone.bas);
+  if (toutVisible) return;
+
+  // Sinon : on fait glisser pour centrer l'ensemble dans la zone visible.
+  const [minX, maxX] = d3.extent(surEcran, (p) => p.x);
+  const [minY, maxY] = d3.extent(surEcran, (p) => p.y);
+  const decalageX = (zone.gauche + zone.droite) / 2 - (minX + maxX) / 2;
+  const decalageY = (zone.haut + zone.bas) / 2 - (minY + maxY) / 2;
+  svg.transition().duration(500)
+    .call(zoom.transform, d3.zoomIdentity
+      .translate(t.x + decalageX / matrice.a, t.y + decalageY / matrice.d)
+      .scale(t.k));
+}
+
 // Centre la carte sur une personne, en zoomant un peu si besoin.
 function centrerSur(r) {
   const echelle = Math.max(d3.zoomTransform(svg.node()).k, 1.5);

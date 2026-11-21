@@ -282,7 +282,12 @@ document.getElementById("bouton-sauvegarde").addEventListener("click", ouvrirSau
 document.getElementById("bouton-fermer").addEventListener("click", fermerPanneau);
 
 // Les actions sur la carte
-quandOnCliqueUneBulle = ouvrirPourModifier;
+// Clic sur une bulle : on ouvre sa fiche, et la carte glisse si besoin pour
+// montrer "moi", cette personne et ses relations (sans changer le zoom).
+quandOnCliqueUneBulle = (relation) => {
+  ouvrirPourModifier(relation);
+  cadrerPersonne(relation, panneau.getBoundingClientRect());
+};
 quandOnRelieDeuxBulles = ouvrirLien;
 quandOnCliqueUnLien = (lien) =>
   ouvrirLien(trouverRelation(lien.de), trouverRelation(lien.vers));
