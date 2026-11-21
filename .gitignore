@@ -1,0 +1,10 @@
+# Sauvegardes de données personnelles : ne jamais les ajouter à Git
+sauvegardes/
+*sauvegarde*.json
+
+# Réglages locaux de Claude Code
+.claude/settings.local.json
+
+# Fichiers créés automatiquement par Windows
+Thumbs.db
+desktop.ini

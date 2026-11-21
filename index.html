@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RelationMap</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header>
+    <h1>RelationMap</h1>
+    <ul id="legende"></ul>
+  </header>
+
+  <!-- La carte est dessinée ici par js/carte.js -->
+  <svg id="carte"></svg>
+
+  <!-- L'ordre compte : la bibliothèque, puis les données, puis la carte -->
+  <script src="lib/d3.min.js"></script>
+  <script src="js/donnees.js"></script>
+  <script src="js/carte.js"></script>
+</body>
+</html>

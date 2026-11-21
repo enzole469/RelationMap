@@ -1,0 +1,108 @@
+/* Couleurs générales de l'app */
+:root {
+  --fond: #faf7f2;
+  --texte: #2b2d42;
+  --texte-doux: #6c6f7f;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--fond);
+  color: var(--texte);
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+}
+
+/* La page : un bandeau en haut, la carte prend tout le reste */
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 24px;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e6e0d6;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+/* Légende des cercles */
+#legende {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+  color: var(--texte-doux);
+}
+
+#legende li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+#legende .pastille {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+/* La carte */
+#carte {
+  flex: 1;
+  width: 100%;
+  cursor: grab;
+  touch-action: none; /* laisse la carte gérer le doigt sur téléphone */
+}
+
+#carte:active { cursor: grabbing; }
+
+.anneau {
+  fill: none;
+  stroke-width: 2;
+  stroke-dasharray: 6 6;
+  opacity: 0.5;
+}
+
+.nom-anneau {
+  font-size: 13px;
+  fill: var(--texte-doux);
+  text-anchor: middle;
+}
+
+.moi circle { fill: var(--texte); }
+.moi text {
+  fill: white;
+  font-weight: 600;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.bulle { cursor: pointer; }
+
+.bulle circle {
+  stroke: white;
+  stroke-width: 3;
+}
+
+.bulle text {
+  font-size: 13px;
+  text-anchor: middle;
+  fill: var(--texte);
+  paint-order: stroke;
+  stroke: var(--fond);
+  stroke-width: 4px;
+  pointer-events: none;
+}
