@@ -260,6 +260,7 @@ function afficherMessageImport(texte, estUneErreur) {
 const carte = document.getElementById("carte");
 
 function afficherVue(vue) {
+  basculerMenu(false); // sur téléphone, le menu se referme
   vueRelation.hidden = vue !== vueRelation;
   vueLien.hidden = vue !== vueLien;
   vueSauvegarde.hidden = vue !== vueSauvegarde;
@@ -269,6 +270,7 @@ function afficherVue(vue) {
 }
 
 function fermerPanneau() {
+  basculerMenu(false);
   panneau.hidden = true;
   carte.classList.remove("anneaux-visibles");
   relationOuverte = null;
@@ -322,6 +324,18 @@ function viderRecherche() {
 }
 
 document.getElementById("bouton-recentrer").addEventListener("click", recentrer);
+
+// Menu ☰ (téléphone) : affiche ou cache la légende et le bouton Sauvegarde.
+const bandeau = document.querySelector("header");
+const boutonMenu = document.getElementById("bouton-menu");
+
+function basculerMenu(ouvrir) {
+  bandeau.classList.toggle("menu-ouvert", ouvrir);
+  boutonMenu.setAttribute("aria-expanded", String(ouvrir));
+}
+
+boutonMenu.addEventListener("click", () =>
+  basculerMenu(!bandeau.classList.contains("menu-ouvert")));
 
 // Un clic sur le fond de la carte ou la touche Échap ferment le panneau.
 carte.addEventListener("click", fermerPanneau);

@@ -10,6 +10,18 @@ const LARGEUR_DISQUE = [140, 170, 200, 230]; // largeur de chaque disque
 const TAILLE_BULLE   = [22, 18, 15, 12];     // rayon des bulles de ce niveau
 const TAILLE_TEXTE   = [13, 12, 11, 11];     // taille minimale du nom à l'écran
 const RAYON_MOI = 34; // taille de la bulle centrale
+
+// Réglages d'affichage à l'écran (en pixels), surtout utiles sur téléphone
+// où la carte entière est très réduite.
+const RAYON_MIN_BULLE_ECRAN = 6; // une bulle ne devient jamais plus petite
+const ZONE_TACTILE_ECRAN = 22;   // rayon de la zone touchable au doigt
+// Agrandissement des noms à partir duquel les noms des amis et
+// connaissances sont cachés (trop serrés pour être lisibles).
+const SEUIL_NOMS_LOINTAINS = 2.3;
+// Agrandissement de référence des noms (écran d'ordinateur ordinaire),
+// utilisé pour réserver leur place : identique sur tous les appareils, pour
+// que la disposition des bulles soit la même partout.
+const AGRANDISSEMENT_REFERENCE = 1.8;
 const MARGE = 6;      // petit espace entre une bulle et le bord de son disque
 
 // Bord extérieur du disque d'un niveau (somme des largeurs jusqu'à lui).
@@ -87,7 +99,7 @@ const zoom = d3.zoom()
   .scaleExtent([0.15, 4]) // zoom minimum (pour voir les connaissances lointaines) et maximum
   .on("zoom", (evenement) => {
     monde.attr("transform", evenement.transform);
-    ajusterTailleDesNoms();
+    ajusterAuZoom();
   });
 svg.call(zoom);
 
@@ -121,13 +133,17 @@ function cadrerPersonne(r, obstacle = null) {
   // et avec une marge pour que les noms restent lisibles.
   const cadre = svg.node().getBoundingClientRect();
   let droite = cadre.right;
-  if (obstacle && obstacle.width > 0 && obstacle.left - cadre.left > cadre.width * 0.4) {
-    droite = Math.min(droite, obstacle.left);
+  let bas = cadre.bottom;
+  if (obstacle && obstacle.width > 0) {
+    // Panneau sur le côté droit (ordinateur)
+    if (obstacle.left - cadre.left > cadre.width * 0.4) droite = Math.min(droite, obstacle.left);
+    // Panneau en bas de l'écran (téléphone)
+    else if (obstacle.top - cadre.top > cadre.height * 0.25) bas = Math.min(bas, obstacle.top);
   }
-  const marge = 40;
+  const marge = Math.min(40, cadre.width / 10);
   const zone = {
     gauche: cadre.left + marge, droite: droite - marge,
-    haut: cadre.top + marge, bas: cadre.bottom - marge,
+    haut: cadre.top + marge, bas: bas - marge,
   };
 
   // Position à l'écran de chaque point, avec le zoom actuel.
@@ -373,10 +389,12 @@ let bulleVisee = null;
 // La bulle (autre que celle qu'on déplace) qui se trouve sous le pointeur.
 // La zone de détection est un peu plus large que la bulle, pour qu'il
 // suffise d'arriver à peu près dessus.
+// Elle tient aussi compte de la taille à l'écran (au moins 28 pixels autour),
+// pour viser facilement au doigt sur une carte très réduite.
 function bulleSousLePointeur(x, y, deplacee) {
+  const tolerance = (r) => Math.max(rayonBulle(r) * 1.8, 26, 28 / echelleEcran());
   return relations.find(
-    (r) => r !== deplacee &&
-      Math.hypot(r.x - x, r.y - y) < Math.max(rayonBulle(r) * 1.8, 26)
+    (r) => r !== deplacee && Math.hypot(r.x - x, r.y - y) < tolerance(r)
   ) || null;
 }
 
@@ -472,17 +490,17 @@ function dessinerCarte() {
           evenement.stopPropagation();
           quandOnCliqueUneBulle(r);
         });
-      nouvelle.append("circle");
+      nouvelle.append("circle").attr("class", "disque");
+      nouvelle.append("circle").attr("class", "zone-tactile");
       nouvelle.append("text");
       return nouvelle;
     });
 
-  // Taille, couleur et nom selon le niveau (qui peut avoir changé).
-  bulles.select("circle")
-    .attr("r", rayonBulle)
-    .attr("fill", (r) => couleurDuCercle(r.cercle));
+  // Couleur et nom selon le niveau (qui peut avoir changé) ; les tailles
+  // dépendent aussi du zoom, elles sont réglées par ajusterAuZoom().
+  bulles.select(".disque").attr("fill", (r) => couleurDuCercle(r.cercle));
   bulles.select("text").text((r) => r.nom);
-  ajusterTailleDesNoms();
+  ajusterAuZoom();
 
   afficherSelection();
   afficherFiltres();
@@ -519,38 +537,47 @@ function dessinerCarte() {
 // Les noms gardent une taille lisible à l'écran : quand la carte est réduite
 // pour tenir dans la fenêtre (ou dézoomée), ils ne rapetissent pas avec
 // elle ; quand on zoome, ils grossissent normalement.
-// Facteur d'agrandissement des noms pour compenser la réduction de la carte.
-// avecZoom = false : ne tient compte que de la taille de la fenêtre.
-function compensationDesNoms(avecZoom) {
-  const matrice = (avecZoom ? monde : svg).node().getScreenCTM();
-  const echelle = matrice ? matrice.a : 1; // pixels à l'écran par unité de carte
-  return echelle < 1 ? 1 / echelle : 1;
+// Nombre de pixels à l'écran pour une unité de la carte (zoom compris).
+function echelleEcran() {
+  const matrice = monde.node().getScreenCTM();
+  return matrice ? matrice.a : 1;
 }
 
-function ajusterTailleDesNoms() {
-  const compensation = compensationDesNoms(true);
+// Adapte l'affichage au zoom et à la taille de l'écran :
+// - les noms gardent une taille lisible (ils ne rapetissent pas avec la
+//   carte, mais grossissent quand on zoome) ;
+// - les bulles ne deviennent jamais minuscules, et ont une zone touchable
+//   assez grande pour le doigt ;
+// - si la carte est trop réduite, les noms des amis et connaissances sont
+//   cachés (sauf ceux mis en avant par le focus ou la recherche).
+function ajusterAuZoom() {
+  const echelle = echelleEcran();
+  const agrandissement = echelle < 1 ? 1 / echelle : 1;
+  const rayonAffiche = (r) => Math.max(rayonBulle(r), RAYON_MIN_BULLE_ECRAN / echelle);
+  const tailleNom = (r) => TAILLE_TEXTE[r.cercle - 1] * agrandissement;
+
+  bulles.select(".disque").attr("r", rayonAffiche);
+  bulles.select(".zone-tactile").attr("r", (r) => Math.max(rayonAffiche(r), ZONE_TACTILE_ECRAN / echelle));
   bulles.select("text")
-    .style("font-size", (r) => TAILLE_TEXTE[r.cercle - 1] * compensation + "px")
-    .attr("y", (r) => rayonBulle(r) + TAILLE_TEXTE[r.cercle - 1] * compensation + 2);
-  moi.select("text").style("font-size", 13 * compensation + "px");
+    .style("font-size", (r) => tailleNom(r) + "px")
+    .attr("y", (r) => rayonAffiche(r) + tailleNom(r) + 2);
+  bulles.classed("nom-cache", (r) => r.cercle > 2 && agrandissement > SEUIL_NOMS_LOINTAINS);
+  moi.select("text").style("font-size", 13 * agrandissement + "px");
+  moi.select("circle").attr("r", Math.max(RAYON_MOI, 18 / echelle));
 }
 
 // Place réservée autour d'une bulle pour elle ET son nom (écrit dessous),
 // afin que les bulles voisines ne viennent pas recouvrir le nom.
 // La largeur du nom est estimée d'après son nombre de lettres.
+// Calculée pour un écran de référence : la disposition est la même sur
+// ordinateur et sur téléphone.
 function rayonAvecNom(r) {
-  const hauteurNom = TAILLE_TEXTE[r.cercle - 1] * compensationDesNoms(false);
+  const hauteurNom = TAILLE_TEXTE[r.cercle - 1] * AGRANDISSEMENT_REFERENCE;
   const largeurNom = r.nom.length * hauteurNom * 0.55;
   return Math.max(rayonBulle(r) + hauteurNom * 0.65 + 2, largeurNom / 2 + 3);
 }
 
-// Quand la fenêtre change de taille, les noms changent de taille aussi :
-// on recalcule la place réservée autour de chaque bulle.
-window.addEventListener("resize", () => {
-  ajusterTailleDesNoms();
-  simulation.force("ecart").radius(rayonAvecNom);
-  simulation.alpha(Math.max(simulation.alpha(), 0.1)).restart();
-});
+window.addEventListener("resize", ajusterAuZoom);
 
 // Met en évidence des bulles et/ou un lien (listes vides / null = rien).
 function selectionner(idsBulles = [], idLien = null) {
@@ -587,6 +614,7 @@ function afficherSelection() {
 
   bulles.classed("estompee", (r) => focus && !nettes.has(r.id));
   traits.classed("estompe", (l) => focus && !lienNet(l));
+  svg.classed("focus", focus);
 }
 
 // --- Recherche ----------------------------------------------------------------
@@ -621,6 +649,7 @@ function afficherRecherche() {
   const trouvees = new Set(resultatsRecherche(texteRecherche).map((r) => r.id));
   bulles.classed("hors-recherche", (r) => active && !trouvees.has(r.id));
   traits.classed("hors-recherche", active);
+  svg.classed("recherche", active);
 }
 
 // Quand on quitte la page ou qu'on change d'application (sur téléphone),

@@ -74,6 +74,12 @@ concentriques selon leur degré de proximité avec moi (au centre).
   (`dessinerCarte()` la remet à jour et sauvegarde après chaque changement).
 - `js/interface.js` : le panneau latéral (vues relation, lien et sauvegarde).
 - `lib/d3.min.js` : la bibliothèque D3 (version 7.9.0), ne pas modifier.
+- `manifest.webmanifest` : fiche d'identité de la PWA (nom, icônes, couleurs).
+- `sw.js` : service worker (fonctionnement hors connexion, stratégie « le
+  réseau d'abord, la copie sinon »). **Tout nouveau fichier de l'app doit
+  être ajouté à la liste `FICHIERS` de `sw.js`.**
+- `icones/` : icône de l'app (`icone.svg`, et ses versions PNG 192 et 512
+  générées à partir du SVG avec Chrome sans fenêtre).
 - `tests/exemples.js` : données fictives pour les tests (`chargerExemples()`),
   jamais chargé par l'app.
 
@@ -122,5 +128,15 @@ Les données contiennent les noms de vraies personnes : elles restent privées.
   (attendre son résultat) ; ne pas réutiliser un nom de variable globale de
   l'app dans le script de test ; en quittant une page, l'app sauvegarde.
 - Toujours regarder une capture d'écran en plus des chiffres : une mesure
-  peut passer alors que le rendu est mauvais.
+  peut passer alors que le rendu est mauvais. Régénérer les pages de test
+  depuis `index.html` après chaque modification de celui-ci.
+- Affichage téléphone : sous Windows, Chrome impose une largeur de fenêtre
+  minimale (~500 px) ; pour simuler un téléphone, afficher la page dans une
+  `<iframe>` de 412 px de large.
+- Service worker / hors connexion : il ne fonctionne pas en `file://`. Le
+  tester avec un petit serveur Python local (dans le dossier temporaire) qui
+  sert le projet, peut simuler une coupure réseau et reçoit les résultats de
+  la page de test par POST (Chrome lancé en arrière-plan, `--dump-dom` est
+  trop rapide). Ensuite, n'arrêter que ses propres processus de test
+  (filtrer par ligne de commande), jamais tous les `python` ou `chrome`.
 - Mettre à jour ce fichier quand une décision importante est prise.

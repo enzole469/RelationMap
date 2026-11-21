@@ -2,23 +2,34 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>RelationMap</title>
+  <meta name="theme-color" content="#2b2d42">
+  <meta name="description" content="Carte personnelle de mes relations">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icones/icone.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icones/icone-192.png">
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+  <!-- Sur ordinateur, tout tient sur une ligne. Sur téléphone, la légende et
+       la sauvegarde passent dans un menu qu'on ouvre avec le bouton ☰. -->
   <header>
     <h1>RelationMap</h1>
-    <div class="legendes">
-      <ul id="legende"></ul>
-      <ul id="legende-liens"></ul>
+    <div id="menu">
+      <div class="legendes">
+        <ul id="legende"></ul>
+        <ul id="legende-liens"></ul>
+      </div>
+      <button id="bouton-sauvegarde">Sauvegarde</button>
     </div>
     <input id="recherche" type="search" placeholder="Rechercher un nom…"
            autocomplete="off" aria-label="Rechercher un nom">
-    <div class="actions">
-      <button id="bouton-sauvegarde">Sauvegarde</button>
-      <button id="bouton-ajouter" class="principal">+ Ajouter</button>
-    </div>
+    <button id="bouton-menu" aria-expanded="false" aria-controls="menu"
+            aria-label="Menu : légende et sauvegarde">☰</button>
+    <button id="bouton-ajouter" class="principal" aria-label="Ajouter une personne">
+      +<span class="texte-ordinateur"> Ajouter</span>
+    </button>
   </header>
 
   <!-- La carte est dessinée ici par js/carte.js -->
@@ -27,7 +38,7 @@
     <button id="bouton-recentrer" class="flottant" title="Vue d'ensemble">⌖ Recentrer</button>
     <p id="message-vide" hidden>
       Votre carte est vide.<br>
-      Cliquez sur <strong>+ Ajouter</strong> pour y placer une première personne.
+      Touchez <strong>+</strong> pour y placer une première personne.
     </p>
   </main>
 
@@ -112,5 +123,13 @@
   <script src="js/donnees.js"></script>
   <script src="js/carte.js"></script>
   <script src="js/interface.js"></script>
+  <script>
+    // Active le fonctionnement hors connexion (seulement quand l'app est
+    // ouverte depuis une adresse web, pas en double-cliquant sur le fichier).
+    if ("serviceWorker" in navigator && location.protocol !== "file:") {
+      navigator.serviceWorker.register("sw.js").catch((erreur) =>
+        console.error("Mode hors connexion indisponible :", erreur));
+    }
+  </script>
 </body>
 </html>

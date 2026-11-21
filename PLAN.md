@@ -5,14 +5,14 @@ session et mis à jour à la fin.
 
 ## Où on en est
 
-**Dernière session :** 2026-11-21. Étapes 1 à 4 terminées : carte en disques
-de proximité, relations et liens (ajout, modification, suppression),
-attraction des liés et répartition des groupes, sauvegarde automatique,
-export / import de fichier. L'app démarre maintenant sur une carte vide :
-l'utilisateur peut commencer à saisir ses vraies relations.
+**Dernière session :** 2026-11-21. Étapes 1 à 4 terminées, étape 5 bien
+avancée : l'app est une PWA installable qui fonctionne hors connexion, et
+son affichage est adapté au téléphone. Reste la mise en ligne et le test sur
+un vrai téléphone Android.
 
-**Prochaine action :** étape 5, PWA (installable, hors ligne), adaptation au
-téléphone, puis mise en ligne (avec accord) et test sur Android.
+**Prochaine action :** mise en ligne sur GitHub Pages (avec l'accord de
+l'utilisateur : compte GitHub, dépôt public), puis installation et test sur
+Android.
 
 ## Étapes
 
@@ -46,8 +46,11 @@ téléphone, puis mise en ligne (avec accord) et test sur Android.
 - [x] Message clair si les données enregistrées sont illisibles
 
 ### Étape 5 : PWA et téléphone
-- [ ] Rendre l'app installable et utilisable hors ligne
-- [ ] Adapter l'affichage et le tactile au téléphone
+- [x] Rendre l'app installable et utilisable hors ligne (manifest, icônes,
+  service worker ; testé avec un serveur local et une coupure réseau)
+- [x] Adapter l'affichage et le tactile au téléphone (bandeau compact avec
+  menu ☰, panneau en bas d'écran, bulles et zones tactiles de taille
+  minimale, noms lointains cachés tant qu'on n'a pas zoomé)
 - [ ] Mettre en ligne sur GitHub Pages (avec mon accord)
 - [ ] Installer et tester sur Android
 
@@ -61,9 +64,11 @@ téléphone, puis mise en ligne (avec accord) et test sur Android.
   disque ? (aujourd'hui elle revient dans le sien ; on change le niveau dans
   sa fiche)
 - Afficher la liste des liens d'une personne dans sa fiche ?
-- Étape 5 : sur un écran de téléphone (~420 px), le bandeau déborde
-  (boutons « + Ajouter » et « Recentrer » coupés, légende trop large). À
-  revoir en priorité lors de l'adaptation au téléphone.
+- Mise en ligne : il faut un compte GitHub. L'outil `gh` n'est pas installé.
+  Sur un compte gratuit, GitHub Pages demande un dépôt **public** (le code
+  sera visible, pas les données). Attendre l'accord de l'utilisateur.
+- Non testé sur un vrai téléphone : le tactile (toucher, glisser, pincer
+  pour zoomer) n'a été vérifié qu'en simulation.
 - À l'étape 5 : les données saisies en local (`index.html` ouvert par
   double-clic) ne seront pas visibles sur la version en ligne. Il faudra
   exporter puis importer une fois lors du passage à la version en ligne.
@@ -123,3 +128,9 @@ téléphone, puis mise en ligne (avec accord) et test sur Android.
   relations n'est pas visible (panneau compris), la carte glisse pour
   centrer l'ensemble, sans changer le zoom ; sinon rien ne bouge
   (`cadrerPersonne` dans `js/carte.js`).
+- 2026-11-21 : téléphone. Sur écran étroit, le bandeau ne garde que la
+  recherche, ☰ (légende, filtres, sauvegarde) et + ; le panneau monte du bas.
+  La place réservée aux noms est calculée pour un écran de référence
+  (`AGRANDISSEMENT_REFERENCE`) afin que la disposition soit identique sur
+  tous les appareils. Service worker « réseau d'abord » : les mises à jour
+  arrivent seules, sans numéro de version à gérer.
