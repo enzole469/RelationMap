@@ -135,3 +135,4 @@ supplémentaires sur les personnes) ou une des questions en suspens.
   sur une autre ou toucher un trait applique l'outil, sans panneau. Hors mode
   édition, glisser une bulle la déplace seulement (plus de lien créé par
   accident) ; toucher une bulle ou un trait ouvre toujours son panneau.
+  Validé par l'utilisateur sur ordinateur et sur Android.
