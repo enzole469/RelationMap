@@ -35,8 +35,15 @@ h1 {
   font-size: 1.2rem;
 }
 
-/* Légende des cercles */
-#legende {
+/* Légendes des cercles et des types de liens */
+.legendes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#legende,
+#legende-liens {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 16px;
@@ -47,11 +54,14 @@ h1 {
   color: var(--texte-doux);
 }
 
-#legende li {
+#legende li,
+#legende-liens li {
   display: flex;
   align-items: center;
   gap: 6px;
 }
+
+.exemple-trait { flex-shrink: 0; }
 
 #legende .pastille {
   width: 12px;
@@ -100,6 +110,32 @@ h1 {
   stroke-width: 4px;
   pointer-events: none;
 }
+
+/* La bulle sur laquelle on s'apprête à lâcher une autre bulle */
+.bulle.visee circle {
+  stroke: var(--texte);
+  stroke-width: 6;
+  stroke-dasharray: 4 3;
+}
+
+/* Les liens entre relations */
+.lien { cursor: pointer; }
+
+.lien-trait {
+  stroke-linecap: round;
+  opacity: 0.75;
+}
+
+/* Ligne large et invisible pour qu'un trait fin soit facile à cliquer */
+.lien-zone {
+  stroke: transparent;
+  stroke-width: 16;
+}
+
+.lien:hover .lien-trait,
+.lien.selectionne .lien-trait { opacity: 1; }
+
+.lien.selectionne .lien-zone { stroke: rgba(43, 45, 66, 0.12); }
 
 /* La bulle dont la fiche est ouverte */
 .bulle.selectionnee circle {
@@ -174,7 +210,7 @@ button.fermer {
   color: var(--texte-doux);
 }
 
-#formulaire label[for],
+#panneau label[for],
 .etiquette {
   display: block;
   margin: 0 0 6px;
@@ -191,8 +227,8 @@ button.fermer {
   border-radius: 8px;
 }
 
-/* Choix du niveau : 4 pastilles colorées */
-#choix-niveau {
+/* Choix du niveau ou du type de lien : des pastilles cliquables */
+.choix-liste {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -220,14 +256,28 @@ button.fermer {
   font-weight: 600;
 }
 
+/* Pour les types de lien : bordure neutre et petit exemple du trait */
+.choix-lien span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 2px solid #d6cfc3;
+}
+
+.choix-lien input:checked + span {
+  background: #f0ebe3;
+  border-color: var(--texte);
+  color: var(--texte);
+}
+
 .choix input:focus-visible + span {
   outline: 2px solid var(--texte);
   outline-offset: 2px;
 }
 
-#formulaire button[type="submit"] { width: 100%; }
+#panneau button[type="submit"] { width: 100%; }
 
-#zone-suppression {
+.zone-bas {
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px solid #eee7dc;

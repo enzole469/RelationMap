@@ -20,6 +20,14 @@ function limitesDuDisque(niveau) {
   };
 }
 
+// Petit dessin d'un type de lien, utilisé dans la légende et le panneau.
+function exempleDeTrait(t) {
+  const pointilles = t.pointilles ? `stroke-dasharray="${t.pointilles}"` : "";
+  return `<svg class="exemple-trait" width="32" height="10" aria-hidden="true">
+    <line x1="2" y1="5" x2="30" y2="5" stroke="${t.couleur}"
+      stroke-width="${t.epaisseur}" ${pointilles}/></svg>`;
+}
+
 // --- Légende en haut de la page -------------------------------------------
 
 d3.select("#legende")
@@ -27,6 +35,12 @@ d3.select("#legende")
   .data(CERCLES)
   .join("li")
   .html((c) => `<span class="pastille" style="background:${c.couleur}"></span>${c.nom}`);
+
+d3.select("#legende-liens")
+  .selectAll("li")
+  .data(TYPES_DE_LIEN)
+  .join("li")
+  .html((t) => exempleDeTrait(t) + t.nom);
 
 // --- Mise en place de la zone de dessin -----------------------------------
 
@@ -68,6 +82,25 @@ const moi = monde.append("g").attr("class", "moi");
 moi.append("circle").attr("r", RAYON_MOI);
 moi.append("text").text("Moi");
 
+// --- Les calques : les liens sont dessinés sous les bulles ----------------
+
+const calqueLiens = monde.append("g");
+const calqueBulles = monde.append("g");
+let traits = calqueLiens.selectAll("g.lien");
+let bulles = calqueBulles.selectAll("g.bulle");
+
+// Pour retrouver vite une relation à partir de son identifiant.
+let relationsParId = new Map();
+
+// Ce qui est mis en évidence (bulles et/ou lien dont le panneau est ouvert).
+let bullesSelectionnees = [];
+let lienSelectionne = null;
+
+// Fonctions appelées lors des actions sur la carte (définies dans interface.js).
+let quandOnCliqueUneBulle = () => {};
+let quandOnCliqueUnLien = () => {};
+let quandOnRelieDeuxBulles = () => {};
+
 // --- La "physique" qui place les bulles -----------------------------------
 
 // Règle maison : une bulle sortie de son disque y est ramenée doucement.
@@ -87,43 +120,68 @@ function forceDisque() {
   }
 }
 
+// Déplace bulles et traits à leur nouvelle position (appelé en continu).
+function mettreAJourPositions() {
+  bulles.attr("transform", (r) => `translate(${r.x},${r.y})`);
+  traits.selectAll("line")
+    .attr("x1", (l) => relationsParId.get(l.de).x)
+    .attr("y1", (l) => relationsParId.get(l.de).y)
+    .attr("x2", (l) => relationsParId.get(l.vers).x)
+    .attr("y2", (l) => relationsParId.get(l.vers).y);
+}
+
 // Deux règles : chaque bulle reste dans son disque,
 // et les bulles se repoussent pour ne pas se chevaucher.
 const simulation = d3.forceSimulation()
   .force("disque", forceDisque)
   .force("ecart", d3.forceCollide(RAYON_BULLE + 14))
-  .on("tick", () => {
-    bulles.attr("transform", (r) => `translate(${r.x},${r.y})`);
-  });
+  .on("tick", mettreAJourPositions);
 
-// --- Déplacer une bulle à la souris ou au doigt ---------------------------
+// --- Faire glisser une bulle ----------------------------------------------
 
-// Quand on lâche la bulle, elle reste où on l'a posée,
-// sauf si elle est hors de son disque : elle y revient alors.
+// Lâchée dans le vide : la bulle reste là (ou revient dans son disque).
+// Lâchée sur une autre bulle : on propose de créer un lien entre les deux,
+// et la bulle déplacée retourne à sa place de départ.
+let positionDeDepart = null;
+let bulleVisee = null;
+
+// La bulle (autre que celle qu'on déplace) qui se trouve sous le pointeur.
+function bulleSousLePointeur(x, y, deplacee) {
+  return relations.find(
+    (r) => r !== deplacee && Math.hypot(r.x - x, r.y - y) < RAYON_BULLE * 1.3
+  ) || null;
+}
+
 const glisser = d3.drag()
   .on("start", (evenement, r) => {
     if (!evenement.active) simulation.alphaTarget(0.3).restart();
+    positionDeDepart = { x: r.x, y: r.y };
     r.fx = r.x;
     r.fy = r.y;
   })
   .on("drag", (evenement, r) => {
     r.fx = evenement.x;
     r.fy = evenement.y;
+    bulleVisee = bulleSousLePointeur(evenement.x, evenement.y, r);
+    bulles.classed("visee", (b) => b === bulleVisee);
   })
   .on("end", (evenement, r) => {
     if (!evenement.active) simulation.alphaTarget(0);
     r.fx = null;
     r.fy = null;
+    if (bulleVisee) {
+      const cible = bulleVisee;
+      bulleVisee = null;
+      bulles.classed("visee", false);
+      r.x = positionDeDepart.x;
+      r.y = positionDeDepart.y;
+      r.vx = 0;
+      r.vy = 0;
+      quandOnRelieDeuxBulles(r, cible);
+    }
   });
 
-// --- Les bulles de relations ----------------------------------------------
-
-const calqueBulles = monde.append("g");
-let bulles = calqueBulles.selectAll("g.bulle");
-let idSelectionne = null;
-
-// Fonction appelée quand on clique sur une bulle (définie dans interface.js).
-let quandOnCliqueUneBulle = () => {};
+// --- Mise à jour de la carte ----------------------------------------------
 
 // Une nouvelle bulle apparaît à un endroit au hasard dans son disque.
 function placerDansSonDisque(r) {
@@ -134,13 +192,37 @@ function placerDansSonDisque(r) {
   r.y = Math.sin(angle) * distance;
 }
 
-// Met la carte en accord avec la liste des relations :
-// ajoute les nouvelles bulles, retire les supprimées, met à jour les autres.
+// Met la carte en accord avec les listes de relations et de liens :
+// ajoute ce qui est nouveau, retire ce qui est supprimé, met à jour le reste.
 function dessinerCarte() {
   for (const r of relations) {
     if (r.x === undefined) placerDansSonDisque(r);
   }
+  relationsParId = new Map(relations.map((r) => [r.id, r]));
 
+  // Les traits : une ligne large et invisible pour cliquer facilement,
+  // et la ligne visible par-dessus.
+  traits = calqueLiens
+    .selectAll("g.lien")
+    .data(liens, (l) => l.id)
+    .join((entree) => {
+      const nouveau = entree.append("g")
+        .attr("class", "lien")
+        .on("click", (evenement, l) => {
+          evenement.stopPropagation();
+          quandOnCliqueUnLien(l);
+        });
+      nouveau.append("line").attr("class", "lien-zone");
+      nouveau.append("line").attr("class", "lien-trait");
+      return nouveau;
+    });
+
+  traits.select(".lien-trait")
+    .attr("stroke", (l) => typeDeLien(l.type).couleur)
+    .attr("stroke-width", (l) => typeDeLien(l.type).epaisseur)
+    .attr("stroke-dasharray", (l) => typeDeLien(l.type).pointilles);
+
+  // Les bulles
   bulles = calqueBulles
     .selectAll("g.bulle")
     .data(relations, (r) => r.id)
@@ -159,16 +241,23 @@ function dessinerCarte() {
 
   bulles.select("circle").attr("fill", (r) => couleurDuCercle(r.cercle));
   bulles.select("text").text((r) => r.nom);
-  bulles.classed("selectionnee", (r) => r.id === idSelectionne);
 
+  afficherSelection();
+  mettreAJourPositions();
   simulation.nodes(relations);
   simulation.alpha(0.5).restart();
 }
 
-// Met en évidence une bulle (ou aucune si id vaut null).
-function selectionnerBulle(id) {
-  idSelectionne = id;
-  bulles.classed("selectionnee", (r) => r.id === idSelectionne);
+// Met en évidence des bulles et/ou un lien (listes vides / null = rien).
+function selectionner(idsBulles = [], idLien = null) {
+  bullesSelectionnees = idsBulles;
+  lienSelectionne = idLien;
+  afficherSelection();
+}
+
+function afficherSelection() {
+  bulles.classed("selectionnee", (r) => bullesSelectionnees.includes(r.id));
+  traits.classed("selectionne", (l) => l.id === lienSelectionne);
 }
 
 dessinerCarte();

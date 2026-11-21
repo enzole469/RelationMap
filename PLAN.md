@@ -5,13 +5,13 @@ session et mis à jour à la fin.
 
 ## Où on en est
 
-**Dernière session :** 2026-11-21. Étapes 1 et 2 terminées : carte en
-disques de proximité, ajout / modification / suppression de relations via un
-panneau. Rien n'est encore sauvegardé (tout repart des exemples au
-rechargement).
+**Dernière session :** 2026-11-21. Étapes 1, 2 et 3 terminées : carte en
+disques de proximité, ajout / modification / suppression de relations, liens
+de 4 types créés en glissant une bulle sur une autre. Rien n'est encore
+sauvegardé (tout repart des exemples au rechargement).
 
-**Prochaine action :** étape 3, créer des liens entre relations en glissant
-une bulle sur une autre.
+**Prochaine action :** étape 4, sauvegarde automatique sur l'appareil, puis
+export / import de fichier.
 
 ## Étapes
 
@@ -32,9 +32,10 @@ une bulle sur une autre.
 - [x] Supprimer une relation (avec confirmation)
 
 ### Étape 3 : gérer les liens
-- [ ] Créer un lien en glissant une bulle sur une autre
-- [ ] Afficher les liens entre bulles
-- [ ] Supprimer un lien
+- [x] Créer un lien en glissant une bulle sur une autre
+- [x] Afficher les liens entre bulles (4 types : couple, amis, se
+  connaissent, se détestent)
+- [x] Modifier le type ou supprimer un lien (clic sur le trait)
 
 ### Étape 4 : sauvegarder les données
 - [ ] Enregistrement automatique sur l'appareil
@@ -53,8 +54,10 @@ une bulle sur une autre.
 
 ## Questions en suspens
 
-- Étape 2 : permettre de changer le niveau d'une relation en faisant glisser
-  sa bulle dans un autre disque ? (aujourd'hui elle revient dans le sien)
+- Changer le niveau d'une relation en faisant glisser sa bulle dans un autre
+  disque ? (aujourd'hui elle revient dans le sien ; on change le niveau dans
+  sa fiche)
+- Afficher la liste des liens d'une personne dans sa fiche ?
 
 ## Décisions prises
 
@@ -66,3 +69,6 @@ une bulle sur une autre.
   les lâche en dehors.
 - 2026-11-21 : pas de nom écrit sur les disques, la couleur et la légende
   suffisent.
+- 2026-11-21 : 4 types de liens, distingués par le trait : en couple (épais),
+  amis (moyen), se connaissent (fin pointillé), se détestent (rouge en
+  tirets). Une bulle lâchée sur une autre reprend sa place.

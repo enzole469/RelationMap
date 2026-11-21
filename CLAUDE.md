@@ -67,7 +67,7 @@ concentriques selon leur degré de proximité avec moi (au centre).
   actions qui la modifient (ajouter, modifier, supprimer).
 - `js/carte.js` : le dessin de la carte interactive (`dessinerCarte()` la
   remet à jour après chaque changement).
-- `js/interface.js` : le panneau d'ajout / modification / suppression.
+- `js/interface.js` : le panneau latéral (vue relation et vue lien).
 - `lib/d3.min.js` : la bibliothèque D3 (version 7.9.0), ne pas modifier.
 
 Pour voir l'app : double-cliquer sur `index.html`.
@@ -101,4 +101,12 @@ Les données contiennent les noms de vraies personnes : elles restent privées.
   fonctionne, avec un message clair en français.
 - Code commenté en français, aux endroits utiles pour comprendre la logique.
 - Tester sur ordinateur avant de penser au téléphone.
+- Tests automatiques (pour Claude) : Chrome sans fenêtre
+  (`--headless=new --allow-file-access-from-files`), avec une page de test
+  dans le dossier temporaire qui charge les scripts du projet puis un script
+  de scénario ; `--dump-dom` pour lire les résultats, `--screenshot` pour
+  voir le rendu. Pièges : dans ce mode l'animation D3 ne tourne pas, donc
+  appeler `simulation.tick(300)` pour stabiliser ; un clic juste après un
+  glissement est ignoré par D3 (le décaler) ; ne pas réutiliser un nom de
+  variable globale de l'app dans le script de test.
 - Mettre à jour ce fichier quand une décision importante est prise.

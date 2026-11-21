@@ -9,36 +9,59 @@
 <body>
   <header>
     <h1>RelationMap</h1>
-    <ul id="legende"></ul>
+    <div class="legendes">
+      <ul id="legende"></ul>
+      <ul id="legende-liens"></ul>
+    </div>
     <button id="bouton-ajouter" class="principal">+ Ajouter</button>
   </header>
 
   <!-- La carte est dessinée ici par js/carte.js -->
   <svg id="carte"></svg>
 
-  <!-- Panneau pour ajouter ou modifier une relation (géré par js/interface.js) -->
+  <!-- Panneau latéral (géré par js/interface.js), avec deux vues possibles -->
   <aside id="panneau" hidden>
     <button id="bouton-fermer" class="fermer" aria-label="Fermer">×</button>
-    <h2 id="panneau-titre">Nouvelle relation</h2>
 
-    <form id="formulaire">
-      <label for="champ-nom">Nom</label>
-      <input id="champ-nom" type="text" maxlength="40" autocomplete="off" required>
+    <!-- Vue 1 : ajouter ou modifier une relation -->
+    <section id="vue-relation" hidden>
+      <h2 id="titre-relation">Nouvelle relation</h2>
 
-      <p class="etiquette">Proximité</p>
-      <div id="choix-niveau"></div>
+      <form id="formulaire-relation">
+        <label for="champ-nom">Nom</label>
+        <input id="champ-nom" type="text" maxlength="40" autocomplete="off" required>
 
-      <button type="submit" id="bouton-valider" class="principal">Ajouter</button>
-    </form>
+        <p class="etiquette">Proximité</p>
+        <div id="choix-niveau" class="choix-liste"></div>
 
-    <div id="zone-suppression" hidden>
-      <button id="bouton-supprimer" class="danger-discret">Supprimer cette relation</button>
-      <div id="confirmation" hidden>
-        <p>Supprimer <strong id="nom-a-supprimer"></strong> de la carte ?</p>
-        <button id="confirmer-suppression" class="danger">Oui, supprimer</button>
-        <button id="annuler-suppression">Annuler</button>
+        <button type="submit" id="valider-relation" class="principal">Ajouter</button>
+      </form>
+
+      <div id="zone-suppression" class="zone-bas" hidden>
+        <button id="bouton-supprimer" class="danger-discret">Supprimer cette relation</button>
+        <div id="confirmation" hidden>
+          <p>Supprimer <strong id="nom-a-supprimer"></strong> de la carte ?</p>
+          <button id="confirmer-suppression" class="danger">Oui, supprimer</button>
+          <button id="annuler-suppression">Annuler</button>
+        </div>
       </div>
-    </div>
+    </section>
+
+    <!-- Vue 2 : créer, modifier ou supprimer un lien entre deux relations -->
+    <section id="vue-lien" hidden>
+      <h2 id="titre-lien"></h2>
+
+      <form id="formulaire-lien">
+        <p class="etiquette">Type de lien</p>
+        <div id="choix-type-lien" class="choix-liste"></div>
+
+        <button type="submit" id="valider-lien" class="principal">Créer le lien</button>
+      </form>
+
+      <div id="zone-suppression-lien" class="zone-bas" hidden>
+        <button id="supprimer-lien" class="danger-discret">Supprimer ce lien</button>
+      </div>
+    </section>
   </aside>
 
   <!-- L'ordre compte : la bibliothèque, les données, la carte, puis le panneau -->
