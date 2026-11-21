@@ -51,11 +51,14 @@ la carte et faire glisser les bulles.
 
 ## Questions en suspens
 
-- Détail visuel : le nom d'un cercle (ex. « Ami ») peut être caché par une
-  bulle. À corriger plus tard.
+- Étape 2 : permettre de changer le niveau d'une relation en faisant glisser
+  sa bulle dans un autre disque ? (aujourd'hui elle revient dans le sien)
 
 ## Décisions prises
 
 - 2026-11-21 : PWA en HTML/CSS/JavaScript simples avec D3.js, données
   uniquement sur l'appareil, transfert par export/import de fichier.
 - 2026-11-21 : 4 cercles de proximité : Intime, Proche, Ami, Connaissance.
+- 2026-11-21 : chaque niveau est un disque (anneau coloré) et non une ligne :
+  les bulles sont libres à l'intérieur de leur disque et y reviennent si on
+  les lâche en dehors.

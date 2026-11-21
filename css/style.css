@@ -70,16 +70,19 @@ h1 {
 #carte:active { cursor: grabbing; }
 
 .anneau {
-  fill: none;
-  stroke-width: 2;
-  stroke-dasharray: 6 6;
-  opacity: 0.5;
+  fill-opacity: 0.12;
+  stroke-opacity: 0.35;
+  stroke-width: 1.5;
 }
 
 .nom-anneau {
   font-size: 13px;
   fill: var(--texte-doux);
   text-anchor: middle;
+  paint-order: stroke;
+  stroke: var(--fond);
+  stroke-width: 4px;
+  pointer-events: none; /* ne gêne pas le glisser des bulles */
 }
 
 .moi circle { fill: var(--texte); }
