@@ -46,8 +46,17 @@ h1 {
 h1 { order: 1; }
 .legendes { order: 2; }
 #recherche { order: 3; }
-#bouton-sauvegarde { order: 4; }
-#bouton-ajouter { order: 5; }
+#bouton-edition { order: 4; }
+#bouton-sauvegarde { order: 5; }
+#bouton-ajouter { order: 6; }
+
+/* Bouton Édition enfoncé quand le mode édition est actif */
+#bouton-edition.actif {
+  background: #f4a261;
+  border-color: #f4a261;
+  color: white;
+  font-weight: 600;
+}
 
 /* Légendes des cercles et des types de liens */
 .legendes {
@@ -473,15 +482,21 @@ button.fermer {
     padding: 9px 10px;
   }
 
+  #bouton-edition {
+    order: 2;
+    font-size: 1.1rem;
+    padding: 6px 12px;
+  }
+
   #bouton-menu {
     display: block;
-    order: 2;
+    order: 3;
     font-size: 1.2rem;
     padding: 6px 12px;
   }
 
   #bouton-ajouter {
-    order: 3;
+    order: 4;
     font-size: 1.3rem;
     padding: 4px 16px;
   }
@@ -491,7 +506,7 @@ button.fermer {
   /* Le menu : caché, il s'ouvre sous le bandeau avec le bouton ☰ */
   #menu {
     display: none;
-    order: 4;
+    order: 5;
     flex-basis: 100%;
     flex-direction: column;
     gap: 12px;
@@ -526,3 +541,123 @@ button.fermer {
 
   #message-vide { top: 60%; }
 }
+
+/* =========================================================================
+   Mode édition
+   ========================================================================= */
+
+/* Liseré coloré autour de la carte pour rappeler qu'on est en édition */
+#carte.mode-edition { box-shadow: inset 0 0 0 3px rgba(244, 162, 97, 0.6); }
+
+#barre-edition {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% - 24px);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 8px 10px;
+  background: white;
+  border-radius: 14px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.14);
+}
+
+#terminer-edition { padding: 6px 14px; }
+
+/* Onglets Disques / Liens */
+.onglets {
+  display: flex;
+  padding: 3px;
+  background: #f0ebe3;
+  border-radius: 10px;
+}
+
+.onglets button {
+  border: none;
+  background: none;
+  padding: 6px 14px;
+  border-radius: 8px;
+}
+
+.onglets button[aria-selected="true"] {
+  background: white;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+/* Outils de lien */
+#outils-liens {
+  display: flex;
+  gap: 6px;
+}
+
+#outils-liens[hidden] { display: none; }
+
+button.outil {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border: 2px solid #d6cfc3;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+button.outil.choisi {
+  border-color: var(--texte);
+  background: #f0ebe3;
+  font-weight: 600;
+}
+
+button.outil-effacer { color: #a8321f; }
+button.outil-effacer.choisi { border-color: #a8321f; background: #fbf0ee; }
+
+#consigne-edition {
+  order: 10; /* toujours sur la dernière ligne */
+  margin: 0;
+  flex-basis: 100%;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--texte-doux);
+}
+
+/* Message de confirmation */
+#toast {
+  position: absolute;
+  left: 50%;
+  bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  max-width: calc(100% - 32px);
+  margin: 0;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--texte);
+  color: white;
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+
+@media (max-width: 700px) {
+  /* Ligne 1 : onglets + Terminer ; ligne 2 : outils (défilent de côté) */
+  #barre-edition { top: 8px; padding: 8px; gap: 6px; width: calc(100% - 16px); max-width: none; }
+  .onglets { order: 1; }
+  #terminer-edition { order: 2; }
+  #outils-liens {
+    order: 3;
+    flex-basis: 100%;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+  button.outil { flex-shrink: 0; padding: 6px 9px; font-size: 0.8rem; }
+  .onglets button { padding: 7px 14px; }
+  #consigne-edition { font-size: 0.75rem; }
+}
+
+/* La barre d'édition reste cachée hors mode édition */
+#barre-edition[hidden] { display: none; }

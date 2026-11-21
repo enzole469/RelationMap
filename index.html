@@ -25,6 +25,9 @@
     </div>
     <input id="recherche" type="search" placeholder="Rechercher un nom…"
            autocomplete="off" aria-label="Rechercher un nom">
+    <button id="bouton-edition" aria-pressed="false" aria-label="Mode édition">
+      ✎<span class="texte-ordinateur"> Édition</span>
+    </button>
     <button id="bouton-menu" aria-expanded="false" aria-controls="menu"
             aria-label="Menu : légende et sauvegarde">☰</button>
     <button id="bouton-ajouter" class="principal" aria-label="Ajouter une personne">
@@ -36,6 +39,20 @@
   <main>
     <svg id="carte"></svg>
     <button id="bouton-recentrer" class="flottant" title="Vue d'ensemble">⌖ Recentrer</button>
+
+    <!-- Barre du mode édition (gérée par js/interface.js) -->
+    <div id="barre-edition" hidden>
+      <div class="onglets" role="tablist">
+        <button id="onglet-disques" role="tab" data-mode="disques">Disques</button>
+        <button id="onglet-liens" role="tab" data-mode="liens">Liens</button>
+      </div>
+      <div id="outils-liens" hidden></div>
+      <p id="consigne-edition"></p>
+      <button id="terminer-edition" class="principal">Terminer</button>
+    </div>
+
+    <!-- Petit message de confirmation après une action -->
+    <p id="toast" role="status" aria-live="polite" hidden></p>
     <p id="message-vide" hidden>
       Votre carte est vide.<br>
       Touchez <strong>+</strong> pour y placer une première personne.

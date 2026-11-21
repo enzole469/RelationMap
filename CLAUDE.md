@@ -72,7 +72,8 @@ concentriques selon leur degré de proximité avec moi (au centre).
   liens, actions qui les modifient, sauvegarde automatique, export / import.
 - `js/carte.js` : le dessin de la carte interactive et sa physique
   (`dessinerCarte()` la remet à jour et sauvegarde après chaque changement).
-- `js/interface.js` : le panneau latéral (vues relation, lien et sauvegarde).
+- `js/interface.js` : le panneau latéral (vues relation, lien et sauvegarde),
+  le mode édition (barre d'outils), la recherche, le menu ☰ et les messages.
 - `lib/d3.min.js` : la bibliothèque D3 (version 7.9.0), ne pas modifier.
 - `manifest.webmanifest` : fiche d'identité de la PWA (nom, icônes, couleurs).
 - `sw.js` : service worker (fonctionnement hors connexion, stratégie « le

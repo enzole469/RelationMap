@@ -265,14 +265,16 @@ function afficherVue(vue) {
   vueLien.hidden = vue !== vueLien;
   vueSauvegarde.hidden = vue !== vueSauvegarde;
   panneau.hidden = false;
-  // Les anneaux ne sont visibles que pendant l'édition d'une personne.
-  carte.classList.toggle("anneaux-visibles", vue === vueRelation);
+  // Les anneaux ne sont visibles que pendant l'édition d'une personne
+  // (ou en mode édition des disques).
+  carte.classList.toggle("anneaux-visibles", vue === vueRelation || modeEdition === "disques");
 }
 
 function fermerPanneau() {
   basculerMenu(false);
   panneau.hidden = true;
-  carte.classList.remove("anneaux-visibles");
+  carte.classList.toggle("anneaux-visibles", modeEdition === "disques");
+  mettreEnAvantAnneau(null);
   relationOuverte = null;
   paireOuverte = null;
   lienOuvert = null;
@@ -290,9 +292,110 @@ quandOnCliqueUneBulle = (relation) => {
   ouvrirPourModifier(relation);
   cadrerPersonne(relation, panneau.getBoundingClientRect());
 };
-quandOnRelieDeuxBulles = ouvrirLien;
-quandOnCliqueUnLien = (lien) =>
-  ouvrirLien(trouverRelation(lien.de), trouverRelation(lien.vers));
+// Clic sur un trait : en mode édition des liens, on lui applique l'outil
+// choisi ; sinon on ouvre le panneau du lien.
+quandOnCliqueUnLien = (lien) => {
+  const a = trouverRelation(lien.de), b = trouverRelation(lien.vers);
+  if (modeEdition === "liens") appliquerOutilLien(a, b);
+  else ouvrirLien(a, b);
+};
+
+// ===========================================================================
+// Mode édition
+// ===========================================================================
+
+const boutonEdition = document.getElementById("bouton-edition");
+const barreEdition = document.getElementById("barre-edition");
+const outilsLiens = document.getElementById("outils-liens");
+const consigneEdition = document.getElementById("consigne-edition");
+const toast = document.getElementById("toast");
+
+// L'outil de lien choisi : un type de lien, ou "effacer".
+let outilLien = "ami";
+
+const CONSIGNES = {
+  disques: "Faites glisser une bulle dans un autre disque pour changer sa proximité.",
+  liens: "Choisissez un outil, puis faites glisser une bulle sur une autre (ou touchez un trait).",
+};
+
+// Les outils de lien : un bouton par type, plus "Effacer".
+outilsLiens.innerHTML =
+  TYPES_DE_LIEN.map((t) =>
+    `<button class="outil" data-outil="${t.type}">${exempleDeTrait(t)}${t.nom}</button>`).join("") +
+  `<button class="outil outil-effacer" data-outil="effacer">✕ Effacer</button>`;
+
+outilsLiens.addEventListener("click", (evenement) => {
+  const bouton = evenement.target.closest("button.outil");
+  if (!bouton) return;
+  outilLien = bouton.dataset.outil;
+  afficherBarreEdition();
+});
+
+function afficherBarreEdition() {
+  barreEdition.hidden = modeEdition === null;
+  boutonEdition.setAttribute("aria-pressed", String(modeEdition !== null));
+  boutonEdition.classList.toggle("actif", modeEdition !== null);
+  for (const onglet of barreEdition.querySelectorAll("[data-mode]")) {
+    onglet.setAttribute("aria-selected", String(onglet.dataset.mode === modeEdition));
+  }
+  outilsLiens.hidden = modeEdition !== "liens";
+  for (const bouton of outilsLiens.querySelectorAll("button.outil")) {
+    bouton.classList.toggle("choisi", bouton.dataset.outil === outilLien);
+  }
+  consigneEdition.textContent = CONSIGNES[modeEdition] || "";
+  carte.classList.toggle("mode-edition", modeEdition !== null);
+  carte.classList.toggle("anneaux-visibles", modeEdition === "disques" ||
+    (!panneau.hidden && !vueRelation.hidden));
+}
+
+function choisirModeEdition(mode) {
+  fermerPanneau();
+  changerModeEdition(mode);
+  afficherBarreEdition();
+}
+
+boutonEdition.addEventListener("click", () =>
+  choisirModeEdition(modeEdition === null ? "liens" : null));
+document.getElementById("onglet-disques").addEventListener("click", () => choisirModeEdition("disques"));
+document.getElementById("onglet-liens").addEventListener("click", () => choisirModeEdition("liens"));
+document.getElementById("terminer-edition").addEventListener("click", () => choisirModeEdition(null));
+
+// Applique l'outil de lien choisi entre deux personnes.
+function appliquerOutilLien(a, b) {
+  const existant = trouverLien(a.id, b.id);
+  const paire = `${a.nom} et ${b.nom}`;
+  if (outilLien === "effacer") {
+    if (!existant) return afficherToast(`${paire} n'étaient pas reliés.`);
+    supprimerLien(existant.id);
+    afficherToast(`${paire} : lien effacé.`);
+  } else {
+    const nomType = typeDeLien(outilLien).nom.toLowerCase();
+    if (existant && existant.type === outilLien) return afficherToast(`${paire} : déjà « ${nomType} ».`);
+    if (existant) modifierLien(existant.id, outilLien);
+    else ajouterLien(a.id, b.id, outilLien);
+    afficherToast(`${paire} : ${nomType}.`);
+  }
+  dessinerCarte();
+}
+
+quandOnRelieDeuxBulles = appliquerOutilLien;
+
+// Une bulle lâchée dans un autre disque change de niveau.
+quandOnChangeDeDisque = (relation, niveau) => {
+  modifierRelation(relation.id, relation.nom, niveau);
+  dessinerCarte();
+  const nomNiveau = CERCLES.find((c) => c.niveau === niveau).nom.toLowerCase();
+  afficherToast(`${relation.nom} : ${nomNiveau}.`);
+};
+
+// Petit message qui s'efface tout seul après quelques secondes.
+let minuterieToast = null;
+function afficherToast(texte) {
+  toast.textContent = texte;
+  toast.hidden = false;
+  clearTimeout(minuterieToast);
+  minuterieToast = setTimeout(() => { toast.hidden = true; }, 2500);
+}
 
 // Recherche : on surligne pendant la frappe ; Entrée centre la carte sur la
 // première personne trouvée et ouvre sa fiche ; Échap efface la recherche.
@@ -339,6 +442,9 @@ boutonMenu.addEventListener("click", () =>
 
 // Un clic sur le fond de la carte ou la touche Échap ferment le panneau.
 carte.addEventListener("click", fermerPanneau);
+// Échap ferme le panneau ; si aucun panneau n'est ouvert, quitte le mode édition.
 document.addEventListener("keydown", (evenement) => {
-  if (evenement.key === "Escape") fermerPanneau();
+  if (evenement.key !== "Escape") return;
+  if (panneau.hidden && modeEdition !== null) choisirModeEdition(null);
+  else fermerPanneau();
 });

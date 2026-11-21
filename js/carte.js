@@ -380,11 +380,32 @@ const simulation = d3.forceSimulation()
 
 // --- Faire glisser une bulle ----------------------------------------------
 
-// Lâchée dans le vide : la bulle reste là (ou revient dans son disque).
-// Lâchée sur une autre bulle : on propose de créer un lien entre les deux,
-// et la bulle déplacée retourne à sa place de départ.
+// Ce que fait le glissement dépend du mode :
+// - mode normal (null) : on déplace simplement la bulle (elle reste là, ou
+//   revient dans son disque si on la lâche en dehors) ;
+// - mode édition "liens" : lâchée sur une autre bulle, elle retourne à sa
+//   place et on applique l'outil de lien choisi entre les deux ;
+// - mode édition "disques" : lâchée dans un autre disque, elle change de
+//   niveau de proximité.
+let modeEdition = null;
 let positionDeDepart = null;
 let bulleVisee = null;
+let niveauVise = null;
+
+// Fonction appelée quand une bulle est lâchée dans un autre disque
+// (définie dans interface.js).
+let quandOnChangeDeDisque = () => {};
+
+function changerModeEdition(mode) {
+  modeEdition = mode;
+}
+
+// Le niveau de proximité correspondant à une distance au centre.
+function niveauALaDistance(distance) {
+  for (const c of CERCLES) {
+    if (estLeDernierNiveau(c.niveau) || distance < rayonDuCercle(c.niveau)) return c.niveau;
+  }
+}
 
 // La bulle (autre que celle qu'on déplace) qui se trouve sous le pointeur.
 // La zone de détection est un peu plus large que la bulle, pour qu'il
@@ -412,8 +433,14 @@ const glisser = d3.drag()
   .on("drag", (evenement, r) => {
     r.fx = evenement.x;
     r.fy = evenement.y;
-    bulleVisee = bulleSousLePointeur(evenement.x, evenement.y, r);
-    bulles.classed("visee", (b) => b === bulleVisee);
+    if (modeEdition === "liens") {
+      bulleVisee = bulleSousLePointeur(evenement.x, evenement.y, r);
+      bulles.classed("visee", (b) => b === bulleVisee);
+    } else if (modeEdition === "disques") {
+      // Le disque d'arrivée ressort pendant le glissement.
+      niveauVise = niveauALaDistance(Math.hypot(evenement.x, evenement.y));
+      mettreEnAvantAnneau(niveauVise);
+    }
   })
   .on("end", (evenement, r) => {
     if (!evenement.active) simulation.alphaTarget(0);
@@ -422,7 +449,7 @@ const glisser = d3.drag()
       autre.fx = null;
       autre.fy = null;
     }
-    if (bulleVisee) {
+    if (modeEdition === "liens" && bulleVisee) {
       const cible = bulleVisee;
       bulleVisee = null;
       bulles.classed("visee", false);
@@ -431,6 +458,11 @@ const glisser = d3.drag()
       r.vx = 0;
       r.vy = 0;
       quandOnRelieDeuxBulles(r, cible);
+    } else if (modeEdition === "disques" && niveauVise !== null) {
+      const niveau = niveauVise;
+      niveauVise = null;
+      mettreEnAvantAnneau(null);
+      if (niveau !== r.cercle) quandOnChangeDeDisque(r, niveau);
     }
     sauvegarder();
   });

@@ -60,9 +60,6 @@ supplémentaires sur les personnes) ou une des questions en suspens.
 
 ## Questions en suspens
 
-- Changer le niveau d'une relation en faisant glisser sa bulle dans un autre
-  disque ? (aujourd'hui elle revient dans le sien ; on change le niveau dans
-  sa fiche)
 - Afficher la liste des liens d'une personne dans sa fiche ?
 - À l'étape 5 : les données saisies en local (`index.html` ouvert par
   double-clic) ne seront pas visibles sur la version en ligne. Il faudra
@@ -132,3 +129,9 @@ supplémentaires sur les personnes) ou une des questions en suspens.
 - 2026-11-21 : mise en ligne sur GitHub Pages (dépôt enzole469/RelationMap,
   branche `main`, racine). Publier une mise à jour = `git push` ; le service
   worker « réseau d'abord » la fait arriver toute seule sur les appareils.
+- 2026-11-21 : mode édition (bouton ✎ Édition). Onglet « Disques » :
+  glisser une bulle dans un autre disque change son niveau. Onglet « Liens » :
+  on choisit un outil (un type de lien ou Effacer), puis glisser une bulle
+  sur une autre ou toucher un trait applique l'outil, sans panneau. Hors mode
+  édition, glisser une bulle la déplace seulement (plus de lien créé par
+  accident) ; toucher une bulle ou un trait ouvre toujours son panneau.
