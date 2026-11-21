@@ -146,9 +146,11 @@ let positionDeDepart = null;
 let bulleVisee = null;
 
 // La bulle (autre que celle qu'on déplace) qui se trouve sous le pointeur.
+// La zone de détection est un peu plus large que la bulle, pour qu'il
+// suffise d'arriver à peu près dessus.
 function bulleSousLePointeur(x, y, deplacee) {
   return relations.find(
-    (r) => r !== deplacee && Math.hypot(r.x - x, r.y - y) < RAYON_BULLE * 1.3
+    (r) => r !== deplacee && Math.hypot(r.x - x, r.y - y) < RAYON_BULLE * 1.8
   ) || null;
 }
 
@@ -156,8 +158,12 @@ const glisser = d3.drag()
   .on("start", (evenement, r) => {
     if (!evenement.active) simulation.alphaTarget(0.3).restart();
     positionDeDepart = { x: r.x, y: r.y };
-    r.fx = r.x;
-    r.fy = r.y;
+    // Pendant le glissement, toutes les bulles sont figées sur place :
+    // sinon la bulle visée serait repoussée et s'enfuirait.
+    for (const autre of relations) {
+      autre.fx = autre.x;
+      autre.fy = autre.y;
+    }
   })
   .on("drag", (evenement, r) => {
     r.fx = evenement.x;
@@ -167,8 +173,11 @@ const glisser = d3.drag()
   })
   .on("end", (evenement, r) => {
     if (!evenement.active) simulation.alphaTarget(0);
-    r.fx = null;
-    r.fy = null;
+    // Toutes les bulles redeviennent libres.
+    for (const autre of relations) {
+      autre.fx = null;
+      autre.fy = null;
+    }
     if (bulleVisee) {
       const cible = bulleVisee;
       bulleVisee = null;

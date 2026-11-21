@@ -72,3 +72,6 @@ export / import de fichier.
 - 2026-11-21 : 4 types de liens, distingués par le trait : en couple (épais),
   amis (moyen), se connaissent (fin pointillé), se détestent (rouge en
   tirets). Une bulle lâchée sur une autre reprend sa place.
+- 2026-11-21 : pendant qu'on fait glisser une bulle, toutes les autres sont
+  figées (sinon la bulle visée était repoussée et fuyait, ce qui empêchait
+  de créer des liens).
