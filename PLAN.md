@@ -178,3 +178,8 @@ supplémentaires sur les personnes) ou une des questions en suspens.
   plusieurs groupes repliés reste visible, reliée à leurs bulles par un
   trait en pointillés. Format des données version 3 (les versions 1 et 2
   sont converties).
+- 2026-11-22 : lasso dans l'onglet Groupes : glisser sur le fond entoure
+  plusieurs personnes ; elles sont toutes ajoutées au groupe choisi (ou
+  toutes retirées si elles en faisaient déjà toutes partie), avec
+  « Annuler ». Dans cet onglet, glisser sur le fond ne déplace plus la carte
+  (zoom à la molette / en pinçant toujours possible).

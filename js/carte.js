@@ -103,6 +103,14 @@ const monde = svg.append("g");
 
 const zoom = d3.zoom()
   .scaleExtent([0.15, 4]) // zoom minimum (pour voir les connaissances lointaines) et maximum
+  // En mode Groupes, glisser sur le fond trace un lasso au lieu de déplacer
+  // la carte (le zoom à la molette ou en pinçant reste possible).
+  .filter((evenement) => {
+    if (evenement.button || (evenement.ctrlKey && evenement.type !== "wheel")) return false;
+    if (modeEdition === "groupes" && (evenement.type === "mousedown" ||
+        (evenement.type === "touchstart" && evenement.touches.length === 1))) return false;
+    return true;
+  })
   .on("zoom", (evenement) => {
     monde.attr("transform", evenement.transform);
     ajusterAuZoom();
@@ -237,6 +245,7 @@ moi.append("text").text("Moi");
 const calqueHalos = monde.append("g");
 const calqueLiens = monde.append("g");
 const calqueBulles = monde.append("g");
+const calqueLasso = monde.append("g");
 let halos = calqueHalos.selectAll("g.halo");
 let traits = calqueLiens.selectAll("g.lien");
 let bulles = calqueBulles.selectAll("g.bulle");
@@ -797,6 +806,47 @@ function commencerTraitProvisoire(r) {
     .attr("stroke", type ? type.couleur : "#c0392b")
     .attr("stroke-width", type ? Math.max(type.epaisseur, 2) : 2)
     .attr("stroke-dasharray", type ? type.pointilles : "2 5");
+}
+
+// --- Le lasso (mode Groupes) --------------------------------------------------
+
+// En mode Groupes, glisser sur le fond de la carte trace un lasso ; au lâcher,
+// les personnes entourées sont transmises à quandOnEntoure (interface.js).
+let quandOnEntoure = () => {};
+let lasso = null; // { idPointeur, points: [[x, y]...], trace }
+
+svg.on("pointerdown.lasso", (evenement) => {
+  if (lasso) { annulerLasso(); return; } // un deuxième doigt : on abandonne
+  if (modeEdition !== "groupes" || evenement.button) return;
+  // seulement sur le fond (pas sur une bulle, un trait ou un halo)
+  if (evenement.target.closest(".bulle, .lien, .halo")) return;
+  lasso = {
+    idPointeur: evenement.pointerId,
+    points: [d3.pointer(evenement, monde.node())],
+    trace: calqueLasso.append("path").attr("class", "lasso"),
+  };
+});
+
+window.addEventListener("pointermove", (evenement) => {
+  if (!lasso || evenement.pointerId !== lasso.idPointeur) return;
+  lasso.points.push(d3.pointer(evenement, monde.node()));
+  lasso.trace.attr("d", "M" + lasso.points.join("L") + "Z");
+});
+
+window.addEventListener("pointerup", (evenement) => {
+  if (!lasso || evenement.pointerId !== lasso.idPointeur) return;
+  const polygone = lasso.points;
+  annulerLasso();
+  if (polygone.length < 3 || Math.abs(d3.polygonArea(polygone)) < 100) return; // simple toucher
+  const entourees = noeuds.filter((n) => !estGroupe(n) && d3.polygonContains(polygone, [n.x, n.y]));
+  if (entourees.length) quandOnEntoure(entourees);
+});
+
+window.addEventListener("pointercancel", () => annulerLasso());
+
+function annulerLasso() {
+  if (lasso) lasso.trace.remove();
+  lasso = null;
 }
 
 // --- Mise à jour de la carte ----------------------------------------------

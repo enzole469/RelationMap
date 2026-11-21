@@ -454,7 +454,7 @@ let outilLien = "ami";
 const CONSIGNES = {
   disques: "Faites glisser une bulle dans un autre disque pour changer sa proximité.",
   liens: "Choisissez un outil, puis faites glisser une bulle sur une autre (ou touchez un trait).",
-  groupes: "Choisissez un groupe, puis touchez une personne pour l'y ajouter ou l'en retirer.",
+  groupes: "Choisissez un groupe, puis touchez une personne (ou entourez-en plusieurs en glissant sur le fond) pour l'y ajouter ou l'en retirer.",
 };
 
 // Les outils de lien : un bouton par type, plus "Effacer".
@@ -625,6 +625,37 @@ function basculerDansGroupeEdite(relation) {
   afficherOutilsGroupes();
   afficherToast(ajoutee ? `${relation.nom} ajouté·e à « ${nomGroupe} ».` : `${relation.nom} retiré·e de « ${nomGroupe} ».`);
 }
+
+// Lasso en mode Groupes : les personnes entourées sont toutes ajoutées au
+// groupe choisi ; si elles en faisaient déjà toutes partie, elles en sont
+// toutes retirées. On peut annuler.
+quandOnEntoure = (personnes) => {
+  if (!groupeEdite) return afficherToast("Créez d'abord un groupe avec « + Nouveau ».");
+  const idGroupe = groupeEdite;
+  const nomGroupe = trouverGroupe(idGroupe).nom;
+  const membres = new Set(membresDuGroupe(idGroupe).map((r) => r.id));
+  const ajout = personnes.some((r) => !membres.has(r.id));
+  const concernees = personnes.filter((r) => membres.has(r.id) !== ajout);
+  // pour pouvoir annuler : l'état des corrections avant le lasso
+  const avant = concernees.map((r) => ({
+    r, choix: r.choixGroupes ? { ...r.choixGroupes } : undefined, hors: r.horsGroupesAuto,
+  }));
+  for (const r of concernees) definirAppartenance(r.id, idGroupe, ajout);
+  dessinerCarte();
+  afficherOutilsGroupes();
+  const n = concernees.length;
+  afficherToast(`${pluriel(n, "personne")} ${ajout ? "ajoutée" : "retirée"}${n > 1 ? "s" : ""} ${ajout ? "à" : "de"} « ${nomGroupe} ».`, {
+    libelle: "Annuler",
+    faire: () => {
+      for (const { r, choix, hors } of avant) {
+        if (choix) r.choixGroupes = choix; else delete r.choixGroupes;
+        if (hors) r.horsGroupesAuto = hors; else delete r.horsGroupesAuto;
+      }
+      dessinerCarte();
+      afficherOutilsGroupes();
+    },
+  });
+};
 
 // Une bulle lâchée dans un autre disque change de niveau.
 quandOnChangeDeDisque = (relation, niveau) => {

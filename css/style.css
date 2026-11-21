@@ -829,3 +829,13 @@ button.bouton-large { width: 100%; margin-bottom: 16px; }
   height: 10px;
   border-radius: 50%;
 }
+
+/* Lasso du mode Groupes */
+.lasso {
+  fill: rgba(244, 162, 97, 0.12);
+  stroke: #f4a261;
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
