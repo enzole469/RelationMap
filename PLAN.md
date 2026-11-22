@@ -5,13 +5,17 @@ session et mis à jour à la fin.
 
 ## Où on en est
 
-**Dernière session :** 2026-11-21. Étapes 1 à 5 terminées. L'app est en
-ligne sur https://enzole469.github.io/RelationMap/, installée et testée avec
-succès par l'utilisateur sur ordinateur et sur Android (tactile, liens,
-hors connexion, import des données).
+**Dernière session :** 2026-11-22. Étapes 1 à 5 terminées (app en ligne sur
+https://enzole469.github.io/RelationMap/, validée sur ordinateur et Android).
+Cette session : lisibilité et groupes (étape 5 bis ci-dessous) : groupes
+détectés automatiquement, repliables, qui se chevauchent, sous-groupes,
+couples, mode édition des groupes avec lasso, bouton « Ranger », carte plus
+stable. Tout est publié en ligne (dernier envoi : commit bb26aa1).
 
-**Prochaine action :** au choix de l'utilisateur : étape 6 (informations
-supplémentaires sur les personnes) ou une des questions en suspens.
+**Prochaine action :** recueillir l'avis de l'utilisateur sur les groupes
+avec ses vraies données (groupes justes / trop gros / trop découpés ?
+recouvrements lisibles ? mouvement stable ?) et ajuster. Ensuite, au choix :
+étape 6 ou une des questions en suspens.
 
 ## Étapes
 
@@ -54,6 +58,20 @@ supplémentaires sur les personnes) ou une des questions en suspens.
   https://enzole469.github.io/RelationMap/
 - [x] Installer et tester sur Android (validé par l'utilisateur)
 
+### Étape 5 bis : lisibilité et groupes (2026-11-21 / 22)
+- [x] Anneaux visibles seulement pendant l'édition, anneau choisi mis en avant
+- [x] Disques plus larges, bulles plus petites vers l'extérieur, noms lisibles
+  quel que soit le zoom ; disque « Connaissance » sans bord extérieur
+- [x] Mode focus, noms sans chevauchement, recherche, « Recentrer », filtres
+  de liens, recadrage au clic sur une bulle
+- [x] Mode édition : onglets Disques, Liens (trait qui suit le pointeur) et
+  Groupes (créer, renommer, supprimer, ajouter / retirer, lasso)
+- [x] Groupes détectés automatiquement (Louvain), repliables en grosses bulles,
+  qui peuvent se chevaucher (bulles qui se pénètrent, bulles fantômes à
+  l'ouverture), sous-groupes masqués, couples en groupes « A & B »
+- [x] Bouton « Ranger », carte plus stable (plus de rotation d'ensemble)
+- [ ] Avis de l'utilisateur sur ses vraies données, réglages éventuels
+
 ### Étape 6 : plus tard
 - [ ] Informations supplémentaires (lieu géographique, etc.)
 - [ ] À définir
@@ -66,12 +84,15 @@ supplémentaires sur les personnes) ou une des questions en suspens.
 - Quand tous les groupes sont ouverts (onglet Groupes), leurs halos se
   chevauchent : à revoir avec une organisation plus claire de la carte
   (« arborescence » évoquée par l'utilisateur).
-- Groupes : régler la finesse de la détection si les groupes trouvés sont
-  trop gros ou trop petits sur les vraies données. Sur téléphone, en vue
-  d'ensemble, le nom d'un groupe d'intimes peut toucher « Moi ».
-- À l'étape 5 : les données saisies en local (`index.html` ouvert par
-  double-clic) ne seront pas visibles sur la version en ligne. Il faudra
-  exporter puis importer une fois lors du passage à la version en ligne.
+- Groupes : régler si besoin la finesse de la détection et les seuils des
+  appartenances secondaires (`APPARTENANCE_SECONDAIRE` dans
+  `js/groupes.js` : 30 % des membres connus, 30 % du poids des liens). Sur
+  téléphone, en vue d'ensemble, le nom d'un groupe d'intimes peut toucher
+  « Moi ».
+- Sur téléphone : le lasso avec un deuxième doigt (pincer pendant un lasso)
+  n'a pas pu être testé en simulation.
+- Rappel : le format des données est en version 3 ; un export fait avec la
+  nouvelle version ne s'importe pas dans une ancienne version de l'app.
 
 ## Décisions prises
 

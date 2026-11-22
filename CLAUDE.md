@@ -132,8 +132,14 @@ Les données contiennent les noms de vraies personnes : elles restent privées.
   (attendre son résultat) ; ne pas réutiliser un nom de variable globale de
   l'app dans le script de test ; en quittant une page, l'app sauvegarde.
 - Toujours regarder une capture d'écran en plus des chiffres : une mesure
-  peut passer alors que le rendu est mauvais. Régénérer les pages de test
-  depuis `index.html` après chaque modification de celui-ci.
+  peut passer alors que le rendu est mauvais. Régénérer les pages de test ET
+  de capture depuis `index.html` après chaque modification de celui-ci (une
+  page périmée fait planter `interface.js` et donne des captures trompeuses).
+- Pour diagnostiquer la physique, mesurer (distances, cibles, liens actifs,
+  désactivation des forces une par une) plutôt que deviner.
+- Les scripts Python de modification contenant des apostrophes ou beaucoup
+  de caractères spéciaux : les écrire dans un fichier du dossier temporaire
+  puis l'exécuter (les passer en ligne de commande échoue).
 - Affichage téléphone : sous Windows, Chrome impose une largeur de fenêtre
   minimale (~500 px) ; pour simuler un téléphone, afficher la page dans une
   `<iframe>` de 412 px de large.
